@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -22,15 +23,17 @@ type App struct {
 	pages  *tview.Pages
 	client *db.Client
 
-	header  *tview.TextView
-	tooltip *tview.TextView // hotkey bar below the header
-	footer  *tview.TextView // status bar (query results, errors)
-	cmdBar  *tview.InputField
-	layout  *tview.Flex
+	connPanel *tview.TextView // connection info panel (top-left)
+	header    *tview.TextView
+	tooltip   *tview.TextView // hotkey bar below the header
+	footer    *tview.TextView // status bar (query results, errors)
+	cmdBar    *tview.InputField
+	layout    *tview.Flex
 
 	// Current state
 	dbName     string
 	dbUser     string
+	dbHost     string // host:port extracted from DSN
 	curTable   string // "schema.table" currently viewed/selected
 	lastSQL    string // last executed query (for \tune)
 	dataOffset int    // pagination offset for data view
@@ -58,8 +61,14 @@ func Run(client *db.Client) {
 	}
 	app.dbName = client.CurrentDB()
 	app.dbUser = client.CurrentUser()
+	if u, err := url.Parse(client.DSN); err == nil && u.Host != "" {
+		app.dbHost = u.Host
+	} else {
+		app.dbHost = "?"
+	}
 
 	app.buildLayout()
+	app.setConnPanel()
 	app.showTableList()
 
 	app.tv.SetRoot(app.layout, true).EnableMouse(true)
@@ -68,12 +77,26 @@ func Run(client *db.Client) {
 	}
 }
 
-// buildLayout assembles the root flex: header | tooltip | pages | cmdBar | footer.
+// buildLayout assembles the root flex:
+// topArea (connPanel | header) | tooltip | pages | cmdBar | footer.
 func (app *App) buildLayout() {
+	// Connection info panel — always-visible left sidebar in the top area.
+	app.connPanel = tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignLeft)
+	app.connPanel.SetBackgroundColor(colTooltip)
+
+	// Page-context header — shows current view name and subtitle (right of connPanel).
 	app.header = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
 	app.header.SetBackgroundColor(colHeader)
+
+	// Top area: connection panel on the left, page header on the right.
+	topArea := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(app.connPanel, 26, 0, false).
+		AddItem(app.header, 0, 1, false)
 
 	app.tooltip = tview.NewTextView().
 		SetDynamicColors(true).
@@ -95,7 +118,7 @@ func (app *App) buildLayout() {
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(app.header, 1, 0, false).
+		AddItem(topArea, 4, 0, false).
 		AddItem(app.tooltip, 2, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
@@ -107,15 +130,32 @@ func (app *App) buildLayout() {
 // ── Header / tooltip / footer helpers ────────────────────────────────────────
 
 func (app *App) setHeader(pageTitle, subtitle string) {
-	right := fmt.Sprintf("%s@%s", app.dbUser, app.dbName)
-	gap := 80 - len(pageTitle) - len(subtitle) - len(right)
-	if gap < 1 {
-		gap = 1
+	if subtitle != "" {
+		app.header.SetText(fmt.Sprintf(" [#569cd6]%s[-]  %s", pageTitle, subtitle))
+	} else {
+		app.header.SetText(fmt.Sprintf(" [#569cd6]%s[-]", pageTitle))
 	}
-	app.header.SetText(fmt.Sprintf(
-		" [white::b]pgview[::] [#569cd6]%s[-] %s%s[#6a6a6a]%s[-]",
-		pageTitle, subtitle, strings.Repeat(" ", gap), right,
+}
+
+// setConnPanel populates the connection info panel. Called once at startup;
+// connection details don't change during a session.
+func (app *App) setConnPanel() {
+	app.connPanel.SetText(fmt.Sprintf(
+		" [white::b]pgview[::]  \n"+
+			" [#569cd6]user[-]  [#969696]%s[-]\n"+
+			" [#569cd6]db  [-]  [#969696]%s[-]\n"+
+			" [#569cd6]host[-]  [#969696]%s[-]",
+		truncate(app.dbUser, 16),
+		truncate(app.dbName, 16),
+		truncate(app.dbHost, 16),
 	))
+}
+
+func truncate(s string, max int) string {
+	if len(s) > max {
+		return s[:max-1] + "…"
+	}
+	return s
 }
 
 func (app *App) setTooltip(hotkeys string) {
