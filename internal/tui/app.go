@@ -83,13 +83,17 @@ func (app *App) buildLayout() {
 	// Connection info panel — always-visible left sidebar in the top area.
 	app.connPanel = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft)
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
 	app.connPanel.SetBackgroundColor(colTooltip)
 
 	// Page-context header — shows current view name and subtitle (right of connPanel).
 	app.header = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft)
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
 	app.header.SetBackgroundColor(colHeader)
 
 	// Top area: connection panel on the left, page header on the right.
@@ -100,7 +104,9 @@ func (app *App) buildLayout() {
 
 	app.tooltip = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft)
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
 	app.tooltip.SetBackgroundColor(colTooltip)
 	app.tooltip.SetTextColor(colTooltipFg)
 
