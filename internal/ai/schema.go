@@ -25,14 +25,14 @@ func BuildSchemaContext(client *db.Client) string {
 		if err != nil {
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("TABLE %s.%s (\n", schema, table))
+		fmt.Fprintf(&sb, "TABLE %s.%s (\n", schema, table)
 		for _, col := range cols.Rows {
 			if len(col) >= 4 {
 				nullable := ""
 				if col[3] == "NO" {
 					nullable = " NOT NULL"
 				}
-				sb.WriteString(fmt.Sprintf("  %s %s%s,\n", col[0], col[1], nullable))
+				fmt.Fprintf(&sb, "  %s %s%s,\n", col[0], col[1], nullable)
 			}
 		}
 		sb.WriteString(")\n\n")

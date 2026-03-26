@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
@@ -21,18 +22,19 @@ type App struct {
 	pages  *tview.Pages
 	client *db.Client
 
-	header *tview.TextView
-	footer *tview.TextView
-	cmdBar *tview.InputField // command / filter / AI input bar
-	layout *tview.Flex
+	header  *tview.TextView
+	tooltip *tview.TextView // hotkey bar below the header
+	footer  *tview.TextView // status bar (query results, errors)
+	cmdBar  *tview.InputField
+	layout  *tview.Flex
 
 	// Current state
-	dbName      string
-	dbUser      string
-	curTable    string // "schema.table" currently viewed/selected
-	lastSQL     string // last executed query (for \tune)
-	dataOffset  int    // pagination offset for data view
-	dataFilter  string // active client-side row filter
+	dbName     string
+	dbUser     string
+	curTable   string // "schema.table" currently viewed/selected
+	lastSQL    string // last executed query (for \tune)
+	dataOffset int    // pagination offset for data view
+	dataFilter string // active client-side row filter
 
 	// View widgets (created once, reused)
 	tableListWidget *tview.Table
@@ -59,37 +61,43 @@ func Run(client *db.Client) {
 	}
 }
 
-// buildLayout assembles the root flex: header | pages | cmdBar | footer.
+// buildLayout assembles the root flex: header | tooltip | pages | cmdBar | footer.
 func (app *App) buildLayout() {
 	app.header = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
 	app.header.SetBackgroundColor(colHeader)
 
+	app.tooltip = tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignLeft)
+	app.tooltip.SetBackgroundColor(colTooltip)
+	app.tooltip.SetTextColor(colTooltipFg)
+
 	app.footer = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
 	app.footer.SetBackgroundColor(colFooter)
+	app.footer.SetTextColor(colFooterFg)
 
 	app.cmdBar = tview.NewInputField().
-		SetFieldBackgroundColor(colFooter).
+		SetFieldBackgroundColor(colTooltip).
 		SetFieldTextColor(tcell.ColorWhite).
 		SetLabelColor(colAI)
-	app.cmdBar.SetBackgroundColor(colFooter)
+	app.cmdBar.SetBackgroundColor(colTooltip)
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(app.header, 1, 0, false).
+		AddItem(app.tooltip, 1, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.footer, 1, 0, false)
 
-	// cmdBar hidden by default (zero height via pages trick — we use label
-	// to indicate it's inactive).
 	app.hideCmdBar()
 }
 
-// ── Header / footer helpers ──────────────────────────────────────────────────
+// ── Header / tooltip / footer helpers ────────────────────────────────────────
 
 func (app *App) setHeader(pageTitle, subtitle string) {
 	right := fmt.Sprintf("%s@%s", app.dbUser, app.dbName)
@@ -98,13 +106,21 @@ func (app *App) setHeader(pageTitle, subtitle string) {
 		gap = 1
 	}
 	app.header.SetText(fmt.Sprintf(
-		"[white::b] pgview [::] [yellow]%s[-] %s%s[grey]%s[-]",
+		" [white::b]pgview[::] [#569cd6]%s[-] %s%s[#6a6a6a]%s[-]",
 		pageTitle, subtitle, strings.Repeat(" ", gap), right,
 	))
 }
 
-func (app *App) setFooter(hotkeys string) {
-	app.footer.SetText("[grey]" + hotkeys + "[-]")
+func (app *App) setTooltip(hotkeys string) {
+	app.tooltip.SetText(hotkeys)
+}
+
+func (app *App) setFooter(msg string) {
+	if msg == "" {
+		app.footer.SetText("")
+		return
+	}
+	app.footer.SetText(" " + msg)
 }
 
 // ── CmdBar (filter / SQL / AI input bar) ────────────────────────────────────

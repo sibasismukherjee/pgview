@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
 	"github.com/sibasismukherjee/pgview/internal/ai"
 )
 
@@ -27,7 +28,7 @@ func (app *App) showData() {
 
 	app.loadData()
 	app.switchPage(pageData)
-	app.setFooter(hotkeysData)
+	app.setTooltip(hotkeysData)
 
 	app.dataWidget.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
@@ -101,7 +102,7 @@ func (app *App) loadData() {
 		t.SetCell(0, col, cell)
 	}
 
-	// Apply client-side filter
+	// Apply client-side filter and render with type-aware colours.
 	filter := strings.ToLower(app.dataFilter)
 	row := 1
 	for _, r := range result.Rows {
@@ -118,7 +119,11 @@ func (app *App) loadData() {
 			}
 		}
 		for col, v := range r {
-			t.SetCell(row, col, dataCell(" "+v))
+			var oid uint32
+			if col < len(result.ColumnOIDs) {
+				oid = result.ColumnOIDs[col]
+			}
+			t.SetCell(row, col, typedCell(v, oid))
 		}
 		row++
 	}
@@ -127,11 +132,16 @@ func (app *App) loadData() {
 		t.SetCell(1, 0, errCell(" (no rows)"))
 	}
 
-	subtitle := fmt.Sprintf("offset %d", app.dataOffset)
-	if app.dataFilter != "" {
-		subtitle += "  filter:" + app.dataFilter
+	subtitle := fmt.Sprintf("[#6a6a6a]%s", app.curTable)
+	if app.dataOffset > 0 {
+		subtitle += fmt.Sprintf("  [#569cd6]offset %d", app.dataOffset)
 	}
-	app.setHeader("Data", fmt.Sprintf("[grey]%s  [yellow]%s", app.curTable, subtitle))
+	if app.dataFilter != "" {
+		subtitle += fmt.Sprintf("  [#9cdcfe]filter: %s", app.dataFilter)
+	}
+	app.setHeader("Data", subtitle)
+	rowCount := row - 1
+	app.setFooter(fmt.Sprintf("[white]%d rows[-]", rowCount))
 	t.ScrollToBeginning()
 }
 
@@ -149,19 +159,19 @@ func (app *App) dataFilterPrompt() {
 }
 
 func (app *App) dataTuneAI() {
-	app.showCmdBar("[mediumorchid]✦ AI tune[::-]", "Describe how to improve the query…", func(key tcell.Key) {
+	app.showCmdBar("[#c586c0]✦ AI tune[-]", "Describe how to improve the query…", func(key tcell.Key) {
 		hint := strings.TrimSpace(app.cmdBar.GetText())
 		app.hideCmdBar()
 		if key != tcell.KeyEnter || hint == "" {
 			return
 		}
-		app.setFooter("[mediumorchid]Asking Claude…[-]")
+		app.setFooter("[#c586c0]Asking Claude…[-]")
 		app.tv.ForceDraw()
 
 		schema := ai.BuildSchemaContext(app.client)
 		sql, err := ai.TuneQuery(schema, app.lastSQL, hint)
 		if err != nil {
-			app.setFooter(fmt.Sprintf("[red]AI error: %v[-]", err))
+			app.setFooter(fmt.Sprintf("[#f44747]AI error: %v[-]", err))
 			return
 		}
 		app.openSQL(sql)
