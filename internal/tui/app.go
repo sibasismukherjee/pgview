@@ -115,9 +115,9 @@ func (app *App) buildLayout() {
 
 	headerBar := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(app.connPanel, 30, 0, false).
+		AddItem(app.connPanel, 0, 1, false).
 		AddItem(app.hintBar, 0, 1, false).
-		AddItem(app.infoBar, 44, 0, false)
+		AddItem(app.infoBar, 0, 1, false)
 
 	app.footer = tview.NewTextView().
 		SetDynamicColors(true).
@@ -133,7 +133,7 @@ func (app *App) buildLayout() {
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(headerBar, 2, 0, false).
+		AddItem(headerBar, 4, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.footer, 1, 0, false)
@@ -147,9 +147,9 @@ func (app *App) buildLayout() {
 // and clears row 2. Call setInfoStats separately to populate row 2.
 func (app *App) setHeader(pageTitle, subtitle string) {
 	if subtitle != "" {
-		app.infoLine1 = fmt.Sprintf(" [#569cd6::b]%s[-]  [#6a6a6a]%s[-]", pageTitle, subtitle)
+		app.infoLine1 = fmt.Sprintf("\n [#569cd6::b]%s[-]  [#6a6a6a]%s[-]", pageTitle, subtitle)
 	} else {
-		app.infoLine1 = fmt.Sprintf(" [#569cd6::b]%s[-]", pageTitle)
+		app.infoLine1 = fmt.Sprintf("\n [#569cd6::b]%s[-]", pageTitle)
 	}
 	app.infoBar.SetText(app.infoLine1)
 }
@@ -157,10 +157,10 @@ func (app *App) setHeader(pageTitle, subtitle string) {
 // setConnPanel populates the connection info panel (2 rows, left column).
 // Called once at startup; connection details don't change during a session.
 func (app *App) setConnPanel() {
-	userDB := truncate(app.dbUser+"@"+app.dbName, 16)
-	host := truncate(app.dbHost, 12)
+	userDB := truncate(app.dbUser+"@"+app.dbName, 26)
+	host := truncate(app.dbHost, 22)
 	app.connPanel.SetText(fmt.Sprintf(
-		" [white::b]pgview[-]\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
+		"\n [white::b]pgview[-]\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
 		userDB, host,
 	))
 }
