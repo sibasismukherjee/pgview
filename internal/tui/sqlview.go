@@ -203,6 +203,11 @@ func (app *App) openSQL(sql string) {
 				app.setTooltip(hotkeysHistory)
 			}
 			return nil
+		case event.Key() == tcell.KeyCtrlL:
+			editor.SetText("", false)
+			hintCompletion = ""
+			app.setFooter("")
+			return nil
 		case event.Key() == tcell.KeyTab:
 			// Recompute at Tab-press time so replacement is always correct
 			// regardless of whether hintCompletion is stale.

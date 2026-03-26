@@ -135,6 +135,37 @@ func (c *Client) DescribeTable(schema, table string) (*QueryResult, error) {
 	return c.Query(sql)
 }
 
+// TableInfo returns a quick metadata summary for a table without a full table
+// scan: estimated row count from planner stats, primary key columns, and the
+// number of indexes. Errors are silently ignored — callers treat missing data
+// as informational only.
+func (c *Client) TableInfo(schema, table string) (estRows int64, pkCols string, idxCount int64) {
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT reltuples::bigint FROM pg_class c
+		 JOIN pg_namespace n ON c.relnamespace = n.oid
+		 WHERE n.nspname = '%s' AND c.relname = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		fmt.Sscanf(r.Rows[0][0], "%d", &estRows)
+	}
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT COALESCE(string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position), '')
+		 FROM information_schema.table_constraints tc
+		 JOIN information_schema.key_column_usage kcu
+		   USING (constraint_name, table_schema, table_name)
+		 WHERE tc.constraint_type = 'PRIMARY KEY'
+		   AND tc.table_schema = '%s' AND tc.table_name = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		pkCols = r.Rows[0][0]
+	}
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT COUNT(*) FROM pg_indexes
+		 WHERE schemaname = '%s' AND tablename = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		fmt.Sscanf(r.Rows[0][0], "%d", &idxCount)
+	}
+	return
+}
+
 // ListSchemas returns all non-system schemas.
 func (c *Client) ListSchemas() (*QueryResult, error) {
 	return c.Query(`

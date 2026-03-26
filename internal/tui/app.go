@@ -42,6 +42,11 @@ type App struct {
 	descWidget      *tview.Table
 
 	sqlHistory []string // most-recent-first; capped at 50
+
+	// Table stats cache — populated once per curTable, used in footer.
+	statsCachedTable string
+	statsFooter      string
+	dataRowCount     int // last rendered row count from loadData
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.
@@ -91,7 +96,7 @@ func (app *App) buildLayout() {
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(app.header, 1, 0, false).
-		AddItem(app.tooltip, 1, 0, false).
+		AddItem(app.tooltip, 2, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.footer, 1, 0, false)
@@ -123,6 +128,42 @@ func (app *App) setFooter(msg string) {
 		return
 	}
 	app.footer.SetText(" " + msg)
+}
+
+// ── Table stats helpers ──────────────────────────────────────────────────────
+
+// statsForCurrentTable returns a formatted stats string for app.curTable,
+// cached per table so the 3 meta-queries only run once per navigation.
+func (app *App) statsForCurrentTable() string {
+	if app.statsCachedTable == app.curTable {
+		return app.statsFooter
+	}
+	parts := strings.SplitN(app.curTable, ".", 2)
+	if len(parts) != 2 || app.client == nil {
+		return ""
+	}
+	estRows, pkCols, idxCount := app.client.TableInfo(parts[0], parts[1])
+	pk := pkCols
+	if pk == "" {
+		pk = "—"
+	}
+	app.statsFooter = fmt.Sprintf("[#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
+		fmtCount(estRows), pk, idxCount)
+	app.statsCachedTable = app.curTable
+	return app.statsFooter
+}
+
+func fmtCount(n int64) string {
+	if n < 0 {
+		return "?"
+	}
+	if n >= 1_000_000 {
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	}
+	if n >= 1_000 {
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	}
+	return fmt.Sprintf("%d", n)
 }
 
 // ── CmdBar (filter / SQL / AI input bar) ────────────────────────────────────
