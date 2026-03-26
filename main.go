@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/sibasismukherjee/pgview/internal/db"
-	"github.com/sibasismukherjee/pgview/internal/ui"
+	"github.com/sibasismukherjee/pgview/internal/tui"
 	"golang.org/x/term"
 )
 
@@ -60,5 +60,5 @@ func main() {
 	}
 	defer client.Close()
 
-	ui.Run(client)
+	tui.Run(client)
 }
