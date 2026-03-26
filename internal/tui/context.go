@@ -122,6 +122,11 @@ func typeOperators(dataType string) []string {
 		return []string{"->", "->>", "@>", "<@", "?"}
 	case strings.Contains(dt, "uuid"):
 		return []string{"=", "!=", "IN", "IS NULL", "IS NOT NULL"}
+	case dt == "array" || strings.HasSuffix(dt, "[]"):
+		// Generic array: prefer containment and ANY-membership operators.
+		// '@> ARRAY[...]' checks the column contains a given element;
+		// '= ANY(column)' is used with a literal on the left-hand side.
+		return []string{"@>", "&&", "<@", "= ANY(", "!= ALL("}
 	default:
 		return []string{"=", "!=", "IS NULL", "IS NOT NULL"}
 	}

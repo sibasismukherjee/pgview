@@ -25,9 +25,20 @@ type QueryResult struct {
 }
 
 // Connect builds a DSN from the provided components and opens a connection.
+// Simple query protocol is used unconditionally: it is compatible with direct
+// PostgreSQL, PgBouncer session mode, and PgBouncer transaction mode alike.
+// Extended protocol (prepared-statement caching) cannot be probed reliably
+// for transaction-mode poolers — both probe queries often hit the same backend
+// and appear to succeed, only to fail when a real query is routed elsewhere.
+// For a human-operated TUI the efficiency difference is imperceptible.
 func Connect(proxyURL, username, password, dbname, sslmode string) (*Client, error) {
 	dsn := buildDSN(proxyURL, username, password, dbname, sslmode)
-	conn, err := pgx.Connect(context.Background(), dsn)
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	conn, err := pgx.ConnectConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
