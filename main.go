@@ -42,6 +42,14 @@ func main() {
 		line, _ := r.ReadString('\n')
 		*username = strings.TrimSpace(line)
 	}
+	// Prompt for dbname only when the URL is not a full DSN (no embedded database).
+	if *dbname == "postgres" && !strings.HasPrefix(*proxyURL, "postgres://") && !strings.HasPrefix(*proxyURL, "postgresql://") {
+		fmt.Print("Database [postgres]: ")
+		line, _ := r.ReadString('\n')
+		if name := strings.TrimSpace(line); name != "" {
+			*dbname = name
+		}
+	}
 	if *password == "" {
 		fmt.Print("Password: ")
 		pw, err := term.ReadPassword(syscall.Stdin)
