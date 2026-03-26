@@ -76,18 +76,20 @@ func (app *App) buildCompletions(prefix string) []string {
 	}
 
 	// Table names (schema.table or just table)
-	if result, err := app.client.ListTables(); err == nil {
-		for _, row := range result.Rows {
-			if len(row) < 2 {
-				continue
-			}
-			schema, table := row[0], row[1]
-			fqn := schema + "." + table
-			for _, candidate := range []string{table, fqn} {
-				if strings.HasPrefix(strings.ToUpper(candidate), upper) {
-					if _, ok := seen[candidate]; !ok {
-						seen[candidate] = struct{}{}
-						matches = append(matches, candidate)
+	if app.client != nil {
+		if result, err := app.client.ListTables(); err == nil {
+			for _, row := range result.Rows {
+				if len(row) < 2 {
+					continue
+				}
+				schema, table := row[0], row[1]
+				fqn := schema + "." + table
+				for _, candidate := range []string{table, fqn} {
+					if strings.HasPrefix(strings.ToUpper(candidate), upper) {
+						if _, ok := seen[candidate]; !ok {
+							seen[candidate] = struct{}{}
+							matches = append(matches, candidate)
+						}
 					}
 				}
 			}
