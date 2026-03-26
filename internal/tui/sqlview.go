@@ -67,7 +67,11 @@ func (app *App) openSQL(sql string) {
 		cols := make([]columnInfo, 0, len(result.Rows))
 		for _, row := range result.Rows {
 			if len(row) >= 2 {
-				cols = append(cols, columnInfo{Name: row[0], DataType: row[1]})
+				col := columnInfo{Name: row[0], DataType: row[1]}
+				if len(row) >= 6 {
+					col.UdtName = row[5] // udt_name: "_text", "_jsonb", etc. for arrays
+				}
+				cols = append(cols, col)
 			}
 		}
 		columnCache[key] = cols
