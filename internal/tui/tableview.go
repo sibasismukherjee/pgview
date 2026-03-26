@@ -6,8 +6,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-
-	"github.com/sibasismukherjee/pgview/internal/ai"
 )
 
 const dataPageSize = 200
@@ -47,9 +45,6 @@ func (app *App) showTableList() {
 			return nil
 		case event.Rune() == 'r':
 			app.loadTableList()
-			return nil
-		case event.Rune() == 'a':
-			app.tableAI()
 			return nil
 		case event.Rune() == 'e':
 			app.openSQL("")
@@ -141,32 +136,6 @@ func (app *App) tableFilter() {
 		app.hideCmdBar()
 		app.loadTableList()
 	})
-}
-
-// tableAI activates the AI prompt cmdBar.
-func (app *App) tableAI() {
-	app.showCmdBar("[mediumorchid]✦ AI[::-]", "Describe the query you need…", func(key tcell.Key) {
-		prompt := strings.TrimSpace(app.cmdBar.GetText())
-		app.hideCmdBar()
-		if key != tcell.KeyEnter || prompt == "" {
-			return
-		}
-		app.runAI(prompt)
-	})
-}
-
-// runAI asks Claude for SQL, shows it in the SQL editor so the user can review before running.
-func (app *App) runAI(prompt string) {
-	app.setFooter("[#c586c0]Asking Claude…[-]")
-	app.tv.ForceDraw()
-
-	schema := ai.BuildSchemaContext(app.client)
-	sql, err := ai.AskClaude(schema, prompt)
-	if err != nil {
-		app.setFooter(fmt.Sprintf("[#f44747]AI error: %v[-]", err))
-		return
-	}
-	app.openSQL(sql)
 }
 
 // selectedTable returns schema, table for the currently highlighted row.

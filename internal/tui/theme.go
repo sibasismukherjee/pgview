@@ -19,7 +19,6 @@ var (
 	colSelectedFg  = tcell.NewRGBColor(255, 255, 255) // white
 
 	// Semantic
-	colAI        = tcell.NewRGBColor(197, 134, 192) // #c586c0  VSCode purple
 	colError     = tcell.NewRGBColor(244, 71, 71)   // #f44747  VSCode error red
 	colOK        = tcell.NewRGBColor(78, 201, 176)  // #4ec9b0  VSCode teal
 	colMuted     = tcell.NewRGBColor(106, 106, 106) // #6a6a6a  dim gray
@@ -59,10 +58,8 @@ const (
 
 // hotkeys for each view — displayed in the tooltip bar below the header.
 const (
-	hotkeysTableList = "  [#569cd6]↵[-] view   [#569cd6]d[-] describe   [#569cd6]/[-] filter   [#569cd6]r[-] refresh   [#569cd6]e[-] SQL   [#569cd6]a[-] AI   [#569cd6]q[-] quit"
-	hotkeysData      = "  [#569cd6]Esc[-] back   [#569cd6]/[-] filter   [#569cd6]n/p[-] page   [#569cd6]d[-] describe   [#569cd6]a[-] AI tune   [#569cd6]e[-] SQL   [#569cd6]r[-] refresh"
+	hotkeysTableList = "  [#569cd6]↵[-] view   [#569cd6]d[-] describe   [#569cd6]/[-] filter   [#569cd6]r[-] refresh   [#569cd6]e[-] SQL   [#569cd6]q[-] quit"
+	hotkeysData      = "  [#569cd6]Esc[-] back   [#569cd6]/[-] filter   [#569cd6]n/p[-] page   [#569cd6]d[-] describe   [#569cd6]e[-] SQL   [#569cd6]r[-] refresh"
 	hotkeysDescribe  = "  [#569cd6]Esc[-] back   [#569cd6]↵[-] view data   [#569cd6]q[-] quit"
-	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Esc[-] cancel"
-	hotkeysAI        = "  [#569cd6]↵[-] send to Claude   [#569cd6]Esc[-] cancel"
-	hotkeysFilter    = "  [#569cd6]↵[-] apply   [#569cd6]Esc[-] clear"
+	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Tab[-] complete   [#569cd6]Esc[-] cancel"
 )

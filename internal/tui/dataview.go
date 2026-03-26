@@ -6,8 +6,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-
-	"github.com/sibasismukherjee/pgview/internal/ai"
 )
 
 // showData loads and displays paginated rows for app.curTable.
@@ -56,9 +54,6 @@ func (app *App) showData() {
 			return nil
 		case event.Rune() == 'r':
 			app.loadData()
-			return nil
-		case event.Rune() == 'a':
-			app.dataTuneAI()
 			return nil
 		case event.Rune() == 'e':
 			app.openSQL(app.lastSQL)
@@ -155,26 +150,6 @@ func (app *App) dataFilterPrompt() {
 		}
 		app.hideCmdBar()
 		app.loadData()
-	})
-}
-
-func (app *App) dataTuneAI() {
-	app.showCmdBar("[#c586c0]✦ AI tune[-]", "Describe how to improve the query…", func(key tcell.Key) {
-		hint := strings.TrimSpace(app.cmdBar.GetText())
-		app.hideCmdBar()
-		if key != tcell.KeyEnter || hint == "" {
-			return
-		}
-		app.setFooter("[#c586c0]Asking Claude…[-]")
-		app.tv.ForceDraw()
-
-		schema := ai.BuildSchemaContext(app.client)
-		sql, err := ai.TuneQuery(schema, app.lastSQL, hint)
-		if err != nil {
-			app.setFooter(fmt.Sprintf("[#f44747]AI error: %v[-]", err))
-			return
-		}
-		app.openSQL(sql)
 	})
 }
 
