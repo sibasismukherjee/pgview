@@ -13,8 +13,7 @@ Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy
 - **Paginated data view** — scroll through large tables with `n`/`p`
 - **Client-side filter** — narrow any view instantly with `/`
 - **SQL editor** — open a full-screen SQL editor with `e`, run with `Ctrl+E`
-- **AI query generation** — press `a` to describe what you need in plain English; Claude writes the SQL
-- **AI query tuning** — press `a` on the data view to improve the last query
+- **Tab completion** — press `Tab` in the SQL editor to complete keywords and table names
 - **Describe columns** — schema, type, nullability, defaults at a glance
 - **Secure password prompt** — no echo, uses terminal raw mode
 
@@ -23,17 +22,16 @@ Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy
 ## Demo
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║ pgview  Tables  myuser@mydb                                                  ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  Schema   Table              Type        ║
-║  public   orders             BASE TABLE  ║
-║  public   products           BASE TABLE  ║
-║> public   users              BASE TABLE  ║
-║  reporting daily_summary     VIEW        ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║ <enter> view  d describe  / filter  r refresh  e SQL  a AI  q quit           ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ pgview  Tables                                          myuser@mydb           │
+│  ↵ view   d describe   / filter   r refresh   e SQL   q quit                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Schema    Table              Type                                            │
+│  public    orders             BASE TABLE                                      │
+│  public    products           BASE TABLE                                      │
+│▶ public    users              BASE TABLE                                      │
+│  reporting daily_summary      VIEW                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -43,7 +41,6 @@ Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy
 ### Prerequisites
 
 - **Go 1.22+** — https://go.dev/dl/
-- _(Optional)_ **Claude Code CLI** (`claude`) in `PATH` for AI query features
 
 ### Build from source
 
@@ -104,7 +101,6 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `/` | Filter by name |
 | `r` | Refresh list |
 | `e` | Open SQL editor |
-| `a` | AI — generate a query in plain English |
 | `q` | Quit |
 
 ### Data view
@@ -117,7 +113,6 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `d` | Describe columns of this table |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
-| `a` | AI — describe a change, get improved SQL |
 | `Esc` | Back to table list |
 
 ### SQL editor
@@ -125,6 +120,7 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | Key | Action |
 |-----|--------|
 | `Ctrl+E` | Execute query |
+| `Tab` | Complete keyword or table name |
 | `Esc` | Cancel and go back |
 
 ### Describe view
@@ -134,21 +130,6 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `Enter` | View data rows for this table |
 | `Esc` | Back to table list |
 | `q` | Quit |
-
----
-
-## AI query features
-
-pgview integrates with the [Claude Code CLI](https://claude.ai/code).
-Install it and make sure `claude` is in your `PATH`.
-
-- **`a` on table list** — type a plain-English request ("show me orders placed
-  in the last 7 days grouped by status") and pgview asks Claude to write the SQL,
-  opens it in the editor for you to review, then runs it on `Ctrl+E`.
-- **`a` on data view** — type a hint ("add a WHERE clause for active users only")
-  and Claude rewrites the last query. Review in the editor before running.
-
-If `claude` is not installed, these keys show an error and do nothing else.
 
 ---
 

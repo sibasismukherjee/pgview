@@ -45,6 +45,9 @@ func (app *App) openSQL(sql string) {
 			app.pages.RemovePage(pageSQLEditor)
 			app.switchPage(app.currentContentPage())
 			return nil
+		case event.Key() == tcell.KeyTab:
+			app.sqlComplete(editor)
+			return nil
 		}
 		return event
 	})
