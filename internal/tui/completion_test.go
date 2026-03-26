@@ -32,9 +32,38 @@ func TestBuildCompletions_IsCaseInsensitive(t *testing.T) {
 func TestBuildCompletions_EmptyPrefixReturnsAll(t *testing.T) {
 	app := &App{}
 	got := app.buildCompletions("")
-	// Every keyword should match an empty prefix.
+	// Every keyword must match an empty prefix (Tab on empty editor shows all).
 	if len(got) < len(sqlKeywords) {
 		t.Errorf("empty prefix: expected at least %d completions, got %d", len(sqlKeywords), len(got))
+	}
+}
+
+func TestCursorByteOffset_SingleLine(t *testing.T) {
+	got := cursorByteOffset("SELECT * FROM users", 0, 6)
+	if got != 6 {
+		t.Errorf("single line row=0 col=6: got %d, want 6", got)
+	}
+}
+
+func TestCursorByteOffset_MultiLine(t *testing.T) {
+	// "SELECT *\n" = 9 bytes, then col=4 → offset 13
+	got := cursorByteOffset("SELECT *\nFROM users\nWHERE id = 1", 1, 4)
+	if got != 13 {
+		t.Errorf("multi-line row=1 col=4: got %d, want 13", got)
+	}
+}
+
+func TestCursorByteOffset_EndOfText(t *testing.T) {
+	got := cursorByteOffset("SEL", 0, 3)
+	if got != 3 {
+		t.Errorf("end of text: got %d, want 3", got)
+	}
+}
+
+func TestCursorByteOffset_EmptyText(t *testing.T) {
+	got := cursorByteOffset("", 0, 0)
+	if got != 0 {
+		t.Errorf("empty text: got %d, want 0", got)
 	}
 }
 
