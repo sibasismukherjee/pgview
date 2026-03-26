@@ -3,9 +3,14 @@ package tui
 import "strings"
 
 // columnInfo holds the name and PostgreSQL data type of a table column.
+// UdtName is the information_schema.columns.udt_name value; for array columns
+// (DataType == "ARRAY") it carries the element type with a leading underscore,
+// e.g. "_text", "_jsonb", "_uuid", which lets typeOperators pick the right
+// operators for the specific array element type.
 type columnInfo struct {
 	Name     string
 	DataType string
+	UdtName  string
 }
 
 // clauseKeywords are SQL clause starters we recognise. Multi-word forms come
@@ -103,10 +108,34 @@ func extractTables(sql string) []string {
 }
 
 // typeOperators returns SQL comparison operators appropriate for a PostgreSQL
-// data type string (e.g. "character varying", "integer", "timestamp").
+// data type string. For array columns pass the udt_name (e.g. "_text") rather
+// than the data_type ("ARRAY") so the element type can be used to pick the
+// most useful operators. Array subtypes are matched first to avoid the scalar
+// text/json/uuid cases incorrectly matching udt names like "_text" or "_jsonb".
 func typeOperators(dataType string) []string {
 	dt := strings.ToLower(dataType)
+	el := dt // element type string for _ prefix stripping below
+	if strings.HasPrefix(dt, "_") && len(dt) > 1 {
+		el = dt[1:] // strip leading underscore to get element type name
+	}
 	switch {
+	// ── Array element subtypes (udt_name has a leading _) ─────────────────
+	// These must come before scalar cases: "_text" contains "text", "_jsonb"
+	// contains "json", etc., which would otherwise match the scalar branches.
+	case strings.HasPrefix(dt, "_") && (strings.Contains(el, "text") || strings.Contains(el, "char")):
+		// text[], varchar[] — containment and ANY-membership
+		return []string{"@>", "&&", "= ANY(", "<@"}
+	case strings.HasPrefix(dt, "_") && strings.Contains(el, "json"):
+		// jsonb[], json[] — jsonb containment and key-existence
+		return []string{"@>", "&&", "<@", "?"}
+	case strings.HasPrefix(dt, "_") && strings.Contains(el, "uuid"):
+		// uuid[] — containment and ANY-membership
+		return []string{"@>", "&&", "= ANY(", "<@"}
+	case strings.HasPrefix(dt, "_") || dt == "array" || strings.HasSuffix(dt, "[]"):
+		// Generic array fallback (_int4, _bool, _numeric, …)
+		return []string{"@>", "&&", "<@", "= ANY("}
+
+	// ── Scalar types ───────────────────────────────────────────────────────
 	case strings.Contains(dt, "char") || strings.Contains(dt, "text"):
 		return []string{"LIKE", "ILIKE", "=", "!=", "NOT LIKE", "~", "~*"}
 	case strings.Contains(dt, "int") || strings.Contains(dt, "numeric") ||
@@ -122,11 +151,6 @@ func typeOperators(dataType string) []string {
 		return []string{"->", "->>", "@>", "<@", "?"}
 	case strings.Contains(dt, "uuid"):
 		return []string{"=", "!=", "IN", "IS NULL", "IS NOT NULL"}
-	case dt == "array" || strings.HasSuffix(dt, "[]"):
-		// Generic array: prefer containment and ANY-membership operators.
-		// '@> ARRAY[...]' checks the column contains a given element;
-		// '= ANY(column)' is used with a literal on the left-hand side.
-		return []string{"@>", "&&", "<@", "= ANY(", "!= ALL("}
 	default:
 		return []string{"=", "!=", "IS NULL", "IS NOT NULL"}
 	}
@@ -185,7 +209,14 @@ func contextualCompletion(word, clause string, allTables []string, columns []col
 	if isConditionClause(clause) {
 		for _, col := range columns {
 			if strings.EqualFold(col.Name, prevToken) {
-				for _, op := range typeOperators(col.DataType) {
+				// For array columns use udt_name so typeOperators can pick
+				// element-type-specific operators (_text → LIKE-style array ops,
+				// _jsonb → containment ops, etc.).
+				dt := col.DataType
+				if strings.EqualFold(dt, "array") && col.UdtName != "" {
+					dt = col.UdtName
+				}
+				for _, op := range typeOperators(dt) {
 					opUpper := strings.ToUpper(op)
 					if word == "" || (strings.HasPrefix(opUpper, upper) && opUpper != upper) {
 						return op

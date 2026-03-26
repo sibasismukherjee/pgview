@@ -126,7 +126,8 @@ func (c *Client) DescribeTable(schema, table string) (*QueryResult, error) {
 			data_type,
 			COALESCE(character_maximum_length::text, numeric_precision::text, '') AS length,
 			is_nullable,
-			COALESCE(column_default, '') AS default
+			COALESCE(column_default, '') AS column_default,
+			udt_name
 		FROM information_schema.columns
 		WHERE table_schema = '%s' AND table_name = '%s'
 		ORDER BY ordinal_position
