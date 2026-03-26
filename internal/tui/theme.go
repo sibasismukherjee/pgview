@@ -4,21 +4,19 @@ import "github.com/gdamore/tcell/v2"
 
 // Colour palette — dark terminal, k9s-inspired.
 var (
-	colHeader    = tcell.ColorDodgerBlue
-	colHeaderFg  = tcell.ColorWhite
-	colFooter    = tcell.NewRGBColor(30, 50, 80)
-	colFooterFg  = tcell.ColorSilver
-	colBorder    = tcell.ColorDodgerBlue
-	colTitle     = tcell.ColorAqua
-	colSelected  = tcell.ColorDodgerBlue
-	colSelectedFg = tcell.ColorWhite
-	colColHeader = tcell.ColorDarkCyan
+	colHeader      = tcell.ColorDodgerBlue
+	colFooter      = tcell.NewRGBColor(30, 50, 80)
+	colBorder      = tcell.ColorDodgerBlue
+	colTitle       = tcell.ColorAqua
+	colSelected    = tcell.ColorDodgerBlue
+	colSelectedFg  = tcell.ColorWhite
+	colColHeader   = tcell.ColorDarkCyan
 	colColHeaderFg = tcell.ColorWhite
-	colAI        = tcell.ColorMediumOrchid
-	colError     = tcell.ColorOrangeRed
-	colOK        = tcell.ColorLimeGreen
-	colMuted     = tcell.ColorGrey
-	colPageTitle = tcell.ColorYellow
+	colAI          = tcell.ColorMediumOrchid
+	colError       = tcell.ColorOrangeRed
+	colOK          = tcell.ColorLimeGreen
+	colMuted       = tcell.ColorGrey
+	colPageTitle   = tcell.ColorYellow
 )
 
 // hotkeys for each view — displayed in the footer bar.
