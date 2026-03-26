@@ -121,10 +121,20 @@ func (app *App) loadData() {
 	}
 	schema, table := parts[0], parts[1]
 
-	sql := fmt.Sprintf(
-		`SELECT * FROM %s.%s LIMIT %d OFFSET %d`,
-		pgIdent(schema), pgIdent(table), dataPageSize, app.dataOffset,
-	)
+	// Build the WHERE clause from the user's filter expression.
+	whereClause := parseFilter(app.dataFilter, app.tableColumns)
+	var sql string
+	if whereClause != "" {
+		sql = fmt.Sprintf(
+			`SELECT * FROM %s.%s WHERE %s LIMIT %d OFFSET %d`,
+			pgIdent(schema), pgIdent(table), whereClause, dataPageSize, app.dataOffset,
+		)
+	} else {
+		sql = fmt.Sprintf(
+			`SELECT * FROM %s.%s LIMIT %d OFFSET %d`,
+			pgIdent(schema), pgIdent(table), dataPageSize, app.dataOffset,
+		)
+	}
 	app.lastSQL = sql
 
 	result, err := app.client.Query(sql)
@@ -132,6 +142,12 @@ func (app *App) loadData() {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("query error: %v", err)))
 		app.setHeader("Data", app.curTable)
 		return
+	}
+
+	// Cache column names for filter parsing on subsequent loads.
+	app.tableColumns = make([]columnInfo, len(result.Columns))
+	for i, name := range result.Columns {
+		app.tableColumns[i] = columnInfo{Name: name}
 	}
 
 	// Column headers
@@ -144,22 +160,9 @@ func (app *App) loadData() {
 		t.SetCell(0, col, cell)
 	}
 
-	// Apply client-side filter and render with type-aware colours.
-	filter := strings.ToLower(app.dataFilter)
+	// Render rows with type-aware colours.
 	row := 1
 	for _, r := range result.Rows {
-		if filter != "" {
-			match := false
-			for _, v := range r {
-				if strings.Contains(strings.ToLower(v), filter) {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
 		for col, v := range r {
 			var oid uint32
 			if col < len(result.ColumnOIDs) {
@@ -189,7 +192,7 @@ func (app *App) loadData() {
 }
 
 func (app *App) dataFilterPrompt() {
-	app.showCmdBar("[::b]filter[::-]", "substring to match in any column…", func(key tcell.Key) {
+	app.showCmdBar("[::b]filter[::-]", "col=val  col!=val  col>val  freetext…", func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			app.dataFilter = app.cmdBar.GetText()
 			app.dataOffset = 0

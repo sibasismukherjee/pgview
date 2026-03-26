@@ -44,7 +44,8 @@ type App struct {
 	dataWidget      *tview.Table
 	descWidget      *tview.Table
 
-	sqlHistory []string // most-recent-first; capped at 50
+	sqlHistory   []string      // most-recent-first; capped at 50
+	tableColumns []columnInfo  // columns of curTable, populated on first load
 
 	// Table stats cache — populated once per curTable, used in footer.
 	statsCachedTable string
