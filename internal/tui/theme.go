@@ -61,5 +61,6 @@ const (
 	hotkeysTableList = "  [#569cd6]↵[-] view   [#569cd6]d[-] describe   [#569cd6]/[-] filter   [#569cd6]r[-] refresh   [#569cd6]e[-] SQL   [#569cd6]q[-] quit"
 	hotkeysData      = "  [#569cd6]Esc[-] back   [#569cd6]/[-] filter   [#569cd6]n/p[-] page   [#569cd6]d[-] describe   [#569cd6]e[-] SQL   [#569cd6]r[-] refresh"
 	hotkeysDescribe  = "  [#569cd6]Esc[-] back   [#569cd6]↵[-] view data   [#569cd6]q[-] quit"
-	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Tab[-] complete   [#569cd6]Esc[-] cancel"
+	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Ctrl+R[-] history   [#569cd6]Tab[-] complete   [#569cd6]Esc[-] cancel"
+	hotkeysHistory   = "  [#569cd6]↵[-] load   [#569cd6]Esc[-] back   [#569cd6]↑↓[-] navigate"
 )
