@@ -75,7 +75,7 @@ func (app *App) showData() {
 			return nil
 		case event.Rune() == 'i':
 			app.statsCachedTable = "" // force refresh
-			app.setFooter(fmt.Sprintf("[white]%d rows[-]  %s", app.dataRowCount, app.statsForCurrentTable()))
+			app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", app.dataRowCount, app.statsForCurrentTable()))
 			return nil
 		}
 		return app.globalKeys(event)
@@ -187,7 +187,8 @@ func (app *App) loadData() {
 	app.setHeader("Data", subtitle)
 	rowCount := row - 1
 	app.dataRowCount = rowCount
-	app.setFooter(fmt.Sprintf("[white]%d rows[-]  %s", rowCount, app.statsForCurrentTable()))
+	app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", rowCount, app.statsForCurrentTable()))
+	app.setFooter("")
 	t.ScrollToBeginning()
 }
 

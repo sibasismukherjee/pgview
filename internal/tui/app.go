@@ -23,12 +23,14 @@ type App struct {
 	pages  *tview.Pages
 	client *db.Client
 
-	connPanel *tview.TextView // connection info panel (top-left)
-	header    *tview.TextView
-	tooltip   *tview.TextView // hotkey bar below the header
-	footer    *tview.TextView // status bar (query results, errors)
+	connPanel *tview.TextView // left column — connection info
+	hintBar   *tview.TextView // middle column — hotkeys for current view
+	infoBar   *tview.TextView // right column — page title + table stats
+	footer    *tview.TextView // bottom strip — transient messages only
 	cmdBar    *tview.InputField
 	layout    *tview.Flex
+
+	infoLine1 string // current infoBar row 1 (set by setHeader, read by setInfoStats)
 
 	// Current state
 	dbName     string
@@ -79,37 +81,43 @@ func Run(client *db.Client) {
 }
 
 // buildLayout assembles the root flex:
-// topArea (connPanel | header) | tooltip | pages | cmdBar | footer.
+// headerBar (connPanel | hintBar | infoBar) | pages | cmdBar | footer.
+//
+// The 2-row headerBar replaces the old 4-row topArea + 2-row tooltip,
+// saving 4 rows of vertical space for content.
 func (app *App) buildLayout() {
-	// Connection info panel — always-visible left sidebar in the top area.
+	// Left column — connection info (sidebar gray, fixed 30 chars).
 	app.connPanel = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
 		SetWordWrap(false).
 		SetWrap(false)
 	app.connPanel.SetBackgroundColor(colTooltip)
+	app.connPanel.SetTextColor(colTooltipFg)
 
-	// Page-context header — shows current view name and subtitle (right of connPanel).
-	app.header = tview.NewTextView().
+	// Middle column — hotkeys for the current view (editor dark, flex).
+	app.hintBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
 		SetWordWrap(false).
 		SetWrap(false)
-	app.header.SetBackgroundColor(colHeader)
+	app.hintBar.SetBackgroundColor(colHeader)
+	app.hintBar.SetTextColor(colTooltipFg)
 
-	// Top area: connection panel on the left, page header on the right.
-	topArea := tview.NewFlex().
+	// Right column — page title + table stats (deep navy, fixed 44 chars).
+	app.infoBar = tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
+	app.infoBar.SetBackgroundColor(colInfoBg)
+	app.infoBar.SetTextColor(colInfoFg)
+
+	headerBar := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(app.connPanel, 26, 0, false).
-		AddItem(app.header, 0, 1, false)
-
-	app.tooltip = tview.NewTextView().
-		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft).
-		SetWordWrap(false).
-		SetWrap(false)
-	app.tooltip.SetBackgroundColor(colTooltip)
-	app.tooltip.SetTextColor(colTooltipFg)
+		AddItem(app.connPanel, 30, 0, false).
+		AddItem(app.hintBar, 0, 1, false).
+		AddItem(app.infoBar, 44, 0, false)
 
 	app.footer = tview.NewTextView().
 		SetDynamicColors(true).
@@ -125,8 +133,7 @@ func (app *App) buildLayout() {
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(topArea, 4, 0, false).
-		AddItem(app.tooltip, 2, 0, false).
+		AddItem(headerBar, 2, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.footer, 1, 0, false)
@@ -136,25 +143,25 @@ func (app *App) buildLayout() {
 
 // ── Header / tooltip / footer helpers ────────────────────────────────────────
 
+// setHeader writes the page title (and optional subtitle) to infoBar row 1
+// and clears row 2. Call setInfoStats separately to populate row 2.
 func (app *App) setHeader(pageTitle, subtitle string) {
 	if subtitle != "" {
-		app.header.SetText(fmt.Sprintf(" [#569cd6]%s[-]  %s", pageTitle, subtitle))
+		app.infoLine1 = fmt.Sprintf(" [#569cd6::b]%s[-]  [#6a6a6a]%s[-]", pageTitle, subtitle)
 	} else {
-		app.header.SetText(fmt.Sprintf(" [#569cd6]%s[-]", pageTitle))
+		app.infoLine1 = fmt.Sprintf(" [#569cd6::b]%s[-]", pageTitle)
 	}
+	app.infoBar.SetText(app.infoLine1)
 }
 
-// setConnPanel populates the connection info panel. Called once at startup;
-// connection details don't change during a session.
+// setConnPanel populates the connection info panel (2 rows, left column).
+// Called once at startup; connection details don't change during a session.
 func (app *App) setConnPanel() {
+	userDB := truncate(app.dbUser+"@"+app.dbName, 16)
+	host := truncate(app.dbHost, 12)
 	app.connPanel.SetText(fmt.Sprintf(
-		" [white::b]pgview[::]  \n"+
-			" [#569cd6]user[-]  [#969696]%s[-]\n"+
-			" [#569cd6]db  [-]  [#969696]%s[-]\n"+
-			" [#569cd6]host[-]  [#969696]%s[-]",
-		truncate(app.dbUser, 16),
-		truncate(app.dbName, 16),
-		truncate(app.dbHost, 16),
+		" [white::b]pgview[-]\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
+		userDB, host,
 	))
 }
 
@@ -166,7 +173,17 @@ func truncate(s string, max int) string {
 }
 
 func (app *App) setTooltip(hotkeys string) {
-	app.tooltip.SetText(hotkeys)
+	app.hintBar.SetText(hotkeys)
+}
+
+// setInfoStats writes table stats to infoBar row 2 without disturbing row 1.
+// Pass "" to clear row 2 (e.g. when navigating to a view with no stats).
+func (app *App) setInfoStats(stats string) {
+	if stats == "" {
+		app.infoBar.SetText(app.infoLine1)
+	} else {
+		app.infoBar.SetText(app.infoLine1 + "\n " + stats)
+	}
 }
 
 func (app *App) setFooter(msg string) {
