@@ -19,7 +19,8 @@ import (
 //	col<=val   → "col" <= 'val'
 //	freetext   → col1::text ILIKE '%freetext%' OR col2::text ILIKE '%freetext%' …
 //
-// Column names that do not appear in columns fall back to free-text search.
+// col=val always produces a column filter; if the column doesn't exist PostgreSQL
+// returns a clear error. Bare free-text tokens search across all known columns.
 // All values are safely escaped to prevent SQL injection.
 func parseFilter(input string, columns []columnInfo) string {
 	input = strings.TrimSpace(input)
@@ -32,14 +33,9 @@ func parseFilter(input string, columns []columnInfo) string {
 		return ""
 	}
 
-	knownCols := make(map[string]bool, len(columns))
-	for _, c := range columns {
-		knownCols[strings.ToLower(c.Name)] = true
-	}
-
 	var clauses []string
 	for _, tok := range tokens {
-		if clause := filterTokenToSQL(tok, knownCols, columns); clause != "" {
+		if clause := filterTokenToSQL(tok, columns); clause != "" {
 			clauses = append(clauses, clause)
 		}
 	}
@@ -79,9 +75,10 @@ func tokeniseFilter(s string) []string {
 // Column names must start with a letter or underscore.
 var opRegex = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)(>=|<=|!=|>|<|=)(.+)$`)
 
-func filterTokenToSQL(tok string, knownCols map[string]bool, columns []columnInfo) string {
+func filterTokenToSQL(tok string, columns []columnInfo) string {
 	m := opRegex.FindStringSubmatch(tok)
 	if m == nil {
+		// No operator → free-text search across all known columns.
 		return freeTextClause(tok, columns)
 	}
 
@@ -91,11 +88,8 @@ func filterTokenToSQL(tok string, knownCols map[string]bool, columns []columnInf
 		val = val[1 : len(val)-1]
 	}
 
-	if !knownCols[strings.ToLower(colName)] {
-		// Unrecognised column → treat whole token as free text
-		return freeTextClause(tok, columns)
-	}
-
+	// Always generate a column filter — no fallback to free text.
+	// If the column doesn't exist, PostgreSQL returns a clear error.
 	qcol := pgIdent(colName)
 	switch op {
 	case "=":

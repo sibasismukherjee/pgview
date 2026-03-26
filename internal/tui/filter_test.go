@@ -80,10 +80,12 @@ func TestParseFilterMultipleTerms(t *testing.T) {
 }
 
 func TestParseFilterUnknownColumn(t *testing.T) {
-	// "bogus=val" should fall back to free text (OR across all columns)
+	// col=val always produces a column filter regardless of whether the column
+	// is in testCols; if it doesn't exist, PostgreSQL surfaces a clear error.
 	got := parseFilter("bogus=val", testCols)
-	if !strings.Contains(got, "ILIKE '%bogus=val%'") {
-		t.Errorf("unknown column should fall back to free text, got %q", got)
+	want := `"bogus"::text ILIKE '%val%'`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
