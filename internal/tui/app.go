@@ -83,7 +83,7 @@ func (app *App) buildLayout() {
 	app.cmdBar = tview.NewInputField().
 		SetFieldBackgroundColor(colTooltip).
 		SetFieldTextColor(tcell.ColorWhite).
-		SetLabelColor(colAI)
+		SetLabelColor(colPageTitle)
 	app.cmdBar.SetBackgroundColor(colTooltip)
 
 	app.layout = tview.NewFlex().
