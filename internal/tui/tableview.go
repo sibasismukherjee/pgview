@@ -59,8 +59,8 @@ func (app *App) showTableList() {
 				if pk == "" {
 					pk = "—"
 				}
-				app.setFooter(fmt.Sprintf(
-					"[white]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
+				app.setInfoStats(fmt.Sprintf(
+					"[#c8daf0]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
 					schema, table, fmtCount(estRows), pk, idxCount,
 				))
 			}

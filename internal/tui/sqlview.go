@@ -306,10 +306,11 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 		t.SetCell(1, 0, tview.NewTableCell(" "+tag).SetTextColor(colOK).SetSelectable(false))
 	}
 
-	app.setHeader("SQL Result", fmt.Sprintf("[#6a6a6a]%d rows", len(result.Rows)))
+	app.setHeader("SQL Result", "")
+	app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]", len(result.Rows)))
 	app.switchPage(pageData)
 	app.setTooltip(hotkeysData)
-	app.setFooter(fmt.Sprintf("[white]%d rows[-]", len(result.Rows)))
+	app.setFooter("")
 	t.ScrollToBeginning()
 }
 
