@@ -52,9 +52,17 @@ func (app *App) showTableList() {
 		case event.Rune() == 'i':
 			schema, table := app.selectedTable()
 			if table != "" {
-				app.curTable = schema + "." + table
-				app.statsCachedTable = "" // force fresh fetch
-				app.setFooter(app.statsForCurrentTable())
+				// Query stats for the hovered table without changing curTable
+				// (the user has not navigated into it yet).
+				estRows, pkCols, idxCount := app.client.TableInfo(schema, table)
+				pk := pkCols
+				if pk == "" {
+					pk = "—"
+				}
+				app.setFooter(fmt.Sprintf(
+					"[white]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
+					schema, table, fmtCount(estRows), pk, idxCount,
+				))
 			}
 			return nil
 		case event.Rune() == 'q':
