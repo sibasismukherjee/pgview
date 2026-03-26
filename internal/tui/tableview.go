@@ -31,7 +31,8 @@ func (app *App) showTableList() {
 	app.loadTableList()
 	app.switchPage(pageTableList)
 	app.setHeader("Tables", "")
-	app.setFooter(hotkeysTableList)
+	app.setTooltip(hotkeysTableList)
+	app.setFooter("")
 
 	app.tableListWidget.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
@@ -156,13 +157,13 @@ func (app *App) tableAI() {
 
 // runAI asks Claude for SQL, shows it in the SQL editor so the user can review before running.
 func (app *App) runAI(prompt string) {
-	app.setFooter("[mediumorchid]Asking Claude…[-]")
+	app.setFooter("[#c586c0]Asking Claude…[-]")
 	app.tv.ForceDraw()
 
 	schema := ai.BuildSchemaContext(app.client)
 	sql, err := ai.AskClaude(schema, prompt)
 	if err != nil {
-		app.setFooter(fmt.Sprintf("[red]AI error: %v[-]", err))
+		app.setFooter(fmt.Sprintf("[#f44747]AI error: %v[-]", err))
 		return
 	}
 	app.openSQL(sql)
@@ -195,4 +196,43 @@ func errCell(text string) *tview.TableCell {
 		SetTextColor(colError).
 		SetExpansion(3).
 		SetSelectable(false)
+}
+
+// typedCell returns a table cell coloured and aligned based on the PostgreSQL
+// column OID, so numeric values right-align, booleans get semantic colours, etc.
+func typedCell(text string, oid uint32) *tview.TableCell {
+	if text == "NULL" {
+		return tview.NewTableCell(" NULL").
+			SetTextColor(colNull).
+			SetAttributes(tcell.AttrDim).
+			SetExpansion(1)
+	}
+
+	color := tcell.ColorWhite
+	align := tview.AlignLeft
+
+	switch oid {
+	case oidBool:
+		if text == "true" {
+			color = colBoolTrue
+		} else {
+			color = colBoolFalse
+		}
+	case oidInt2, oidInt4, oidInt8, oidFloat4, oidFloat8, oidNumeric:
+		color = colNumber
+		align = tview.AlignRight
+	case oidUUID:
+		color = colUUID
+	case oidDate, oidTime, oidTimestamp, oidTimestampTZ, oidInterval:
+		color = colTimestamp
+	case oidJSON, oidJSONB:
+		color = colJSON
+	case oidBytea:
+		color = colBytes
+	}
+
+	return tview.NewTableCell(" " + text).
+		SetTextColor(color).
+		SetAlign(align).
+		SetExpansion(1)
 }
