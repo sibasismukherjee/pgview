@@ -56,11 +56,33 @@ const (
 	oidJSONB       uint32 = 3802
 )
 
-// hotkeys for each view — displayed in the tooltip bar below the header.
+// hotkeys for each view — displayed in the 2-row tooltip bar below the header.
+// Format mirrors k9s: section labels in teal, keys in blue, │ separators in muted gray.
 const (
-	hotkeysTableList = "  [#569cd6]↵[-] view   [#569cd6]d[-] describe   [#569cd6]/[-] filter   [#569cd6]r[-] refresh   [#569cd6]e[-] SQL   [#569cd6]q[-] quit"
-	hotkeysData      = "  [#569cd6]Esc[-] back   [#569cd6]/[-] filter   [#569cd6]n/p[-] page   [#569cd6]d[-] describe   [#569cd6]e[-] SQL   [#569cd6]r[-] refresh"
-	hotkeysDescribe  = "  [#569cd6]Esc[-] back   [#569cd6]↵[-] view data   [#569cd6]q[-] quit"
-	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Ctrl+R[-] history   [#569cd6]Tab[-] complete   [#569cd6]Esc[-] cancel"
-	hotkeysHistory   = "  [#569cd6]↵[-] load   [#569cd6]Esc[-] back   [#569cd6]↑↓[-] navigate"
+	hotkeysTableList = "" +
+		"  [#4ec9b0]<nav>[-]  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] describe" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<filter>[-]  [#569cd6]</>[-] search" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<actions>[-]  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<q>[-] quit\n" +
+		"  [#4ec9b0]<info>[-]  [#569cd6]<i>[-] table stats"
+
+	hotkeysData = "" +
+		"  [#4ec9b0]<nav>[-]  [#569cd6]<Esc>[-] back  [#569cd6]<g>[-] top  [#569cd6]<G>[-] bottom" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<page>[-]  [#569cd6]<n>[-] next  [#569cd6]<p>[-] prev" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<filter>[-]  [#569cd6]</>[-] search\n" +
+		"  [#4ec9b0]<view>[-]  [#569cd6]<d>[-] describe  [#569cd6]<f>[-] full cell  [#569cd6]<i>[-] table info" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<actions>[-]  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL"
+
+	hotkeysDescribe = "" +
+		"  [#4ec9b0]<nav>[-]  [#569cd6]<Esc>[-] table list  [#569cd6]<↵>[-] view data" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<actions>[-]  [#569cd6]<e>[-] SQL editor  [#569cd6]<q>[-] quit\n" +
+		""
+
+	hotkeysSQL = "" +
+		"  [#4ec9b0]<editor>[-]  [#569cd6]<Ctrl+E>[-] run  [#569cd6]<Tab>[-] complete  [#569cd6]<Ctrl+L>[-] clear  [#569cd6]<Esc>[-] cancel\n" +
+		"  [#4ec9b0]<history>[-]  [#569cd6]<Ctrl+R>[-] panel"
+
+	hotkeysHistory = "" +
+		"  [#4ec9b0]<history>[-]  [#569cd6]<↵>[-] load query  [#569cd6]<Esc>[-] back to editor" +
+		"  [#6a6a6a] │ [-][#4ec9b0]<navigate>[-]  [#569cd6]<↑↓>[-] browse\n" +
+		""
 )

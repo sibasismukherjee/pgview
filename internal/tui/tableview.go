@@ -49,6 +49,14 @@ func (app *App) showTableList() {
 		case event.Rune() == 'e':
 			app.openSQL("")
 			return nil
+		case event.Rune() == 'i':
+			schema, table := app.selectedTable()
+			if table != "" {
+				app.curTable = schema + "." + table
+				app.statsCachedTable = "" // force fresh fetch
+				app.setFooter(app.statsForCurrentTable())
+			}
+			return nil
 		case event.Rune() == 'q':
 			app.tv.Stop()
 			return nil
