@@ -1,26 +1,25 @@
 version: "2"
 
 linters:
+  # Default set (errcheck, govet, ineffassign, staticcheck, unused) plus extras.
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
-    - noctx
+    - bodyclose
+    - copyloopvar
+    - gocritic
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/sibasismukherjee/pgview
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/sibasismukherjee/pgview
 
 issues:
   exclude-rules:
-    # Test files may use unexported helpers freely.
     - path: "_test\\.go"
       linters:
         - errcheck

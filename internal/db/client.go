@@ -72,7 +72,7 @@ func buildDSN(proxyURL, username, password, dbname, sslmode string) string {
 
 // Close closes the underlying connection.
 func (c *Client) Close() {
-	c.conn.Close(context.Background())
+	_ = c.conn.Close(context.Background())
 }
 
 // CurrentDB returns the name of the connected database.

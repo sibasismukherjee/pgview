@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
@@ -27,12 +28,12 @@ type App struct {
 	layout *tview.Flex
 
 	// Current state
-	dbName      string
-	dbUser      string
-	curTable    string // "schema.table" currently viewed/selected
-	lastSQL     string // last executed query (for \tune)
-	dataOffset  int    // pagination offset for data view
-	dataFilter  string // active client-side row filter
+	dbName     string
+	dbUser     string
+	curTable   string // "schema.table" currently viewed/selected
+	lastSQL    string // last executed query (for \tune)
+	dataOffset int    // pagination offset for data view
+	dataFilter string // active client-side row filter
 
 	// View widgets (created once, reused)
 	tableListWidget *tview.Table
