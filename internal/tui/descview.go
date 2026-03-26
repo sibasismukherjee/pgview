@@ -26,7 +26,8 @@ func (app *App) showDescribe() {
 
 	app.loadDescribe()
 	app.switchPage(pageDescribe)
-	app.setFooter(hotkeysDescribe)
+	app.setTooltip(hotkeysDescribe)
+	app.setFooter("")
 
 	app.descWidget.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
@@ -85,9 +86,9 @@ func (app *App) loadDescribe() {
 		// r[0]=column_name r[1]=data_type r[2]=length r[3]=is_nullable r[4]=column_default
 		nullable := r[3]
 		if nullable == "NO" {
-			nullable = "[red]NOT NULL[-]"
+			nullable = "[#f44747]NOT NULL[-]"
 		} else {
-			nullable = "[grey]NULL[-]"
+			nullable = "[#6a6a6a]NULL[-]"
 		}
 		t.SetCell(row+1, 0, dataCell(" "+r[0]))
 		t.SetCell(row+1, 1, tview.NewTableCell(" "+r[1]).SetTextColor(colTitle).SetExpansion(1))

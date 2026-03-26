@@ -8,9 +8,10 @@ import (
 	"strings"
 	"syscall"
 
+	"golang.org/x/term"
+
 	"github.com/sibasismukherjee/pgview/internal/db"
 	"github.com/sibasismukherjee/pgview/internal/tui"
-	"golang.org/x/term"
 )
 
 var version = "dev"
@@ -43,7 +44,7 @@ func main() {
 	}
 	if *password == "" {
 		fmt.Print("Password: ")
-		pw, err := term.ReadPassword(int(syscall.Stdin))
+		pw, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
 			line, _ := r.ReadString('\n')
 			*password = strings.TrimSpace(line)
