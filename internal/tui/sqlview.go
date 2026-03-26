@@ -31,7 +31,8 @@ func (app *App) openSQL(sql string) {
 	app.pages.AddPage(pageSQLEditor, frame, true, true)
 	app.tv.SetFocus(editor)
 	app.setHeader("SQL", "")
-	app.setFooter(hotkeysSQL)
+	app.setTooltip(hotkeysSQL)
+	app.setFooter("")
 
 	editor.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
@@ -56,7 +57,7 @@ func (app *App) runSQL(query string) {
 		return
 	}
 	app.lastSQL = query
-	app.setFooter("[yellow]Running…[-]")
+	app.setFooter("[#4ec9b0]Running…[-]")
 	app.tv.ForceDraw()
 
 	result, err := app.client.Query(query)
@@ -85,9 +86,10 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 
 	if err != nil {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("error: %v", err)))
-		app.setHeader("SQL Result", "[red]error[-]")
+		app.setHeader("SQL Result", "[#f44747]error[-]")
 		app.switchPage(pageData)
-		app.setFooter(hotkeysData)
+		app.setTooltip(hotkeysData)
+		app.setFooter("")
 		return
 	}
 
@@ -101,7 +103,11 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 	}
 	for row, r := range result.Rows {
 		for col, v := range r {
-			t.SetCell(row+1, col, dataCell(" "+v))
+			var oid uint32
+			if col < len(result.ColumnOIDs) {
+				oid = result.ColumnOIDs[col]
+			}
+			t.SetCell(row+1, col, typedCell(v, oid))
 		}
 	}
 	if len(result.Rows) == 0 {
@@ -112,9 +118,10 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 		t.SetCell(1, 0, tview.NewTableCell(" "+tag).SetTextColor(colOK).SetSelectable(false))
 	}
 
-	app.setHeader("SQL Result", fmt.Sprintf("[grey]%d rows", len(result.Rows)))
+	app.setHeader("SQL Result", fmt.Sprintf("[#6a6a6a]%d rows", len(result.Rows)))
 	app.switchPage(pageData)
-	app.setFooter(hotkeysData)
+	app.setTooltip(hotkeysData)
+	app.setFooter(fmt.Sprintf("[white]%d rows[-]", len(result.Rows)))
 	t.ScrollToBeginning()
 }
 

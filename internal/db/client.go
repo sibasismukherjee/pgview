@@ -18,9 +18,10 @@ type Client struct {
 
 // QueryResult holds column names and string-formatted rows.
 type QueryResult struct {
-	Columns []string
-	Rows    [][]string
-	Tag     string // e.g. "INSERT 0 1", "UPDATE 3"
+	Columns    []string
+	ColumnOIDs []uint32 // PostgreSQL data type OID for each column
+	Rows       [][]string
+	Tag        string // e.g. "INSERT 0 1", "UPDATE 3"
 }
 
 // Connect builds a DSN from the provided components and opens a connection.
@@ -143,6 +144,7 @@ func (c *Client) Query(sql string) (*QueryResult, error) {
 	result := &QueryResult{}
 	for _, fd := range rows.FieldDescriptions() {
 		result.Columns = append(result.Columns, fd.Name)
+		result.ColumnOIDs = append(result.ColumnOIDs, fd.DataTypeOID)
 	}
 
 	for rows.Next() {
@@ -152,11 +154,7 @@ func (c *Client) Query(sql string) (*QueryResult, error) {
 		}
 		row := make([]string, len(vals))
 		for i, v := range vals {
-			if v == nil {
-				row[i] = "NULL"
-			} else {
-				row[i] = fmt.Sprintf("%v", v)
-			}
+			row[i] = formatValue(v)
 		}
 		result.Rows = append(result.Rows, row)
 	}
@@ -188,4 +186,24 @@ func formatPgError(err error) error {
 		return fmt.Errorf("%s (SQLSTATE %s)", msg, pgErr.Code)
 	}
 	return err
+}
+
+// formatValue converts a pgx row value to a display string without mangling
+// binary types. Notably [16]byte (UUID) and []byte (bytea) are rendered as
+// their standard text representations rather than Go's default %v output.
+func formatValue(v interface{}) string {
+	if v == nil {
+		return "NULL"
+	}
+	switch val := v.(type) {
+	case [16]byte:
+		// UUID — format as xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+		return fmt.Sprintf("%x-%x-%x-%x-%x",
+			val[0:4], val[4:6], val[6:8], val[8:10], val[10:16])
+	case []byte:
+		// bytea — render as \x<hex> (PostgreSQL hex escape format)
+		return fmt.Sprintf(`\x%x`, val)
+	default:
+		return fmt.Sprintf("%v", val)
+	}
 }
