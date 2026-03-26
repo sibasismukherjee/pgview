@@ -13,7 +13,7 @@ import (
 const pageSQLEditor = "sqleditor"
 
 // openSQL shows a full-screen SQL editor pre-filled with sql.
-// Ctrl+E runs the query; Esc cancels and returns to the previous page.
+// Ctrl+E runs the query; Esc cancels; Tab accepts the inline completion hint.
 func (app *App) openSQL(sql string) {
 	editor := tview.NewTextArea().
 		SetText(sql, false).
@@ -27,6 +27,92 @@ func (app *App) openSQL(sql string) {
 		AddText("[::b]SQL Editor[::-]  [grey]Ctrl+E[::-] run  [grey]Esc[::-] cancel", true, tview.AlignLeft, colPageTitle)
 	frame.SetBackgroundColor(tcell.ColorDefault)
 	frame.SetBorderColor(colBorder)
+
+	// Fetch all table names once; completion uses them without hitting the DB
+	// on every keystroke.
+	var tableNames []string
+	if app.client != nil {
+		if result, err := app.client.ListTables(); err == nil {
+			for _, row := range result.Rows {
+				if len(row) >= 2 {
+					tableNames = append(tableNames, row[1])
+					tableNames = append(tableNames, row[0]+"."+row[1])
+				}
+			}
+		}
+	}
+
+	// columnCache avoids repeated DescribeTable calls for the same table while
+	// the editor is open.
+	columnCache := make(map[string][]columnInfo)
+
+	fetchColumns := func(tbl string) []columnInfo {
+		key := strings.ToLower(tbl)
+		if cols, ok := columnCache[key]; ok {
+			return cols
+		}
+		if app.client == nil {
+			columnCache[key] = nil
+			return nil
+		}
+		schema, table := "public", tbl
+		if parts := strings.SplitN(tbl, ".", 2); len(parts) == 2 {
+			schema, table = parts[0], parts[1]
+		}
+		result, err := app.client.DescribeTable(schema, table)
+		if err != nil || result == nil {
+			columnCache[key] = nil
+			return nil
+		}
+		cols := make([]columnInfo, 0, len(result.Rows))
+		for _, row := range result.Rows {
+			if len(row) >= 2 {
+				cols = append(cols, columnInfo{Name: row[0], DataType: row[1]})
+			}
+		}
+		columnCache[key] = cols
+		return cols
+	}
+
+	// computeCompletion derives word, wordStart, and completion from text + cursor.
+	computeCompletion := func(text string, pos int) (word string, wordStart int, completion string) {
+		word, wordStart = wordAtCursor(text, pos)
+		clause := detectClause(text[:pos])
+		prevToken := prevTokenAtCursor(text, wordStart)
+
+		fromTables := extractTables(text)
+		var allColumns []columnInfo
+		for _, tbl := range fromTables {
+			allColumns = append(allColumns, fetchColumns(tbl)...)
+		}
+
+		completion = contextualCompletion(word, clause, tableNames, allColumns, prevToken)
+		return
+	}
+
+	// hintCompletion is the suggestion currently shown in the footer.
+	// The Tab handler reads it; updateHint writes it.
+	var hintCompletion string
+
+	// updateHint recomputes the best completion for the word at the cursor
+	// and shows it in the footer. Called on every text change.
+	updateHint := func() {
+		text := editor.GetText()
+		r, c, _, _ := editor.GetCursor()
+		pos := cursorByteOffset(text, r, c)
+
+		word, _, completion := computeCompletion(text, pos)
+		hintCompletion = completion
+		if completion == "" {
+			app.setFooter("")
+			return
+		}
+		// Show the typed prefix dimmed and the completion suffix in white.
+		suffix := completion[len(word):]
+		app.setFooter(fmt.Sprintf(" [#6a6a6a]%s[white]%s[-]", word, suffix))
+	}
+
+	editor.SetChangedFunc(updateHint)
 
 	app.pages.AddPage(pageSQLEditor, frame, true, true)
 	app.tv.SetFocus(editor)
@@ -46,7 +132,22 @@ func (app *App) openSQL(sql string) {
 			app.switchPage(app.currentContentPage())
 			return nil
 		case event.Key() == tcell.KeyTab:
-			app.sqlComplete(editor)
+			// Recompute at Tab-press time so replacement is always correct
+			// regardless of whether hintCompletion is stale.
+			text := editor.GetText()
+			r, c, _, _ := editor.GetCursor()
+			pos := cursorByteOffset(text, r, c)
+			word, start, completion := computeCompletion(text, pos)
+
+			// Prefer the cached hint if it still matches the current word.
+			if hintCompletion != "" && strings.HasPrefix(strings.ToUpper(hintCompletion), strings.ToUpper(word)) {
+				completion = hintCompletion
+			}
+			if completion != "" {
+				editor.Replace(start, pos, completion)
+				hintCompletion = ""
+				app.setFooter("")
+			}
 			return nil
 		}
 		return event
