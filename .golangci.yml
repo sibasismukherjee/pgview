@@ -1,13 +1,18 @@
 version: "2"
 
 linters:
-  # Default set (errcheck, govet, ineffassign, staticcheck, unused) plus extras.
+  # Defaults: errcheck, govet, ineffassign, staticcheck, unused
   enable:
     - misspell
     - unconvert
     - bodyclose
     - copyloopvar
     - gocritic
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - errcheck
 
 formatters:
   enable:
@@ -17,9 +22,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/sibasismukherjee/pgview
-
-issues:
-  exclude-rules:
-    - path: "_test\\.go"
-      linters:
-        - errcheck
