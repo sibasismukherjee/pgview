@@ -12,8 +12,17 @@ import (
 
 const pageSQLEditor = "sqleditor"
 
+// sqlPreview returns a single-line truncated preview of a SQL string.
+func sqlPreview(sql string, maxLen int) string {
+	s := strings.Join(strings.Fields(sql), " ")
+	if len(s) > maxLen {
+		return s[:maxLen-1] + "…"
+	}
+	return s
+}
+
 // openSQL shows a full-screen SQL editor pre-filled with sql.
-// Ctrl+E runs the query; Esc cancels; Tab accepts the inline completion hint.
+// Ctrl+E runs the query; Ctrl+R toggles the history panel; Esc cancels; Tab accepts the inline completion hint.
 func (app *App) openSQL(sql string) {
 	editor := tview.NewTextArea().
 		SetText(sql, false).
@@ -22,9 +31,41 @@ func (app *App) openSQL(sql string) {
 	editor.SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite))
 	editor.SetBorderPadding(0, 0, 1, 1)
 
-	frame := tview.NewFrame(editor).
+	// ── History panel ─────────────────────────────────────────────────────
+	historyTable := tview.NewTable().
+		SetSelectable(true, false).
+		SetFixed(1, 0)
+	historyTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
+	historyTable.SetSelectedStyle(
+		tcell.StyleDefault.
+			Background(colSelected).
+			Foreground(colSelectedFg),
+	)
+
+	historyTable.SetCell(0, 0,
+		tview.NewTableCell(" History").
+			SetTextColor(colPageTitle).
+			SetSelectable(false))
+	if len(app.sqlHistory) == 0 {
+		historyTable.SetCell(1, 0,
+			tview.NewTableCell("  (empty)").
+				SetTextColor(colMuted).
+				SetSelectable(false))
+	} else {
+		for i, q := range app.sqlHistory {
+			historyTable.SetCell(i+1, 0,
+				tview.NewTableCell(" "+sqlPreview(q, 30)).
+					SetTextColor(tcell.ColorWhite))
+		}
+	}
+
+	splitFlex := tview.NewFlex().
+		AddItem(historyTable, 34, 0, false).
+		AddItem(editor, 0, 1, true)
+
+	frame := tview.NewFrame(splitFlex).
 		SetBorders(1, 1, 1, 1, 1, 1).
-		AddText("[::b]SQL Editor[::-]  [grey]Ctrl+E[::-] run  [grey]Esc[::-] cancel", true, tview.AlignLeft, colPageTitle)
+		AddText("[::b]SQL Editor[::-]  [grey]Ctrl+E[::-] run  [grey]Ctrl+R[::-] history  [grey]Esc[::-] cancel", true, tview.AlignLeft, colPageTitle)
 	frame.SetBackgroundColor(tcell.ColorDefault)
 	frame.SetBorderColor(colBorder)
 
@@ -118,6 +159,27 @@ func (app *App) openSQL(sql string) {
 
 	editor.SetChangedFunc(updateHint)
 
+	// ── History panel input capture ────────────────────────────────────────
+	historyTable.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEnter:
+			row, _ := historyTable.GetSelection()
+			idx := row - 1 // row 0 is the header
+			if idx >= 0 && idx < len(app.sqlHistory) {
+				editor.SetText(app.sqlHistory[idx], true)
+				updateHint()
+			}
+			app.tv.SetFocus(editor)
+			app.setTooltip(hotkeysSQL)
+			return nil
+		case tcell.KeyEscape:
+			app.tv.SetFocus(editor)
+			app.setTooltip(hotkeysSQL)
+			return nil
+		}
+		return event
+	})
+
 	app.pages.AddPage(pageSQLEditor, frame, true, true)
 	app.tv.SetFocus(editor)
 	app.setHeader("SQL", "")
@@ -134,6 +196,12 @@ func (app *App) openSQL(sql string) {
 		case event.Key() == tcell.KeyEscape:
 			app.pages.RemovePage(pageSQLEditor)
 			app.switchPage(app.currentContentPage())
+			return nil
+		case event.Key() == tcell.KeyCtrlR:
+			if len(app.sqlHistory) > 0 {
+				app.tv.SetFocus(historyTable)
+				app.setTooltip(hotkeysHistory)
+			}
 			return nil
 		case event.Key() == tcell.KeyTab:
 			// Recompute at Tab-press time so replacement is always correct
@@ -163,6 +231,13 @@ func (app *App) runSQL(query string) {
 	if query == "" {
 		app.switchPage(app.currentContentPage())
 		return
+	}
+	// Prepend to history (no consecutive duplicates; cap at 50).
+	if len(app.sqlHistory) == 0 || app.sqlHistory[0] != query {
+		app.sqlHistory = append([]string{query}, app.sqlHistory...)
+		if len(app.sqlHistory) > 50 {
+			app.sqlHistory = app.sqlHistory[:50]
+		}
 	}
 	app.lastSQL = query
 	app.setFooter("[#4ec9b0]Running…[-]")

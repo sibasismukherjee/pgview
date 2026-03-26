@@ -40,6 +40,8 @@ type App struct {
 	tableListWidget *tview.Table
 	dataWidget      *tview.Table
 	descWidget      *tview.Table
+
+	sqlHistory []string // most-recent-first; capped at 50
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.
