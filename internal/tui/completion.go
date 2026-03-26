@@ -23,15 +23,33 @@ var sqlKeywords = []string{
 	"RETURNING", "WITH", "UNION", "UNION ALL", "INTERSECT", "EXCEPT",
 }
 
+// cursorByteOffset converts the row/column cursor position returned by
+// GetCursor into a byte offset within the full text string.
+func cursorByteOffset(text string, row, col int) int {
+	offset := 0
+	for i := 0; i < row; i++ {
+		nl := strings.IndexByte(text[offset:], '\n')
+		if nl < 0 {
+			return len(text)
+		}
+		offset += nl + 1
+	}
+	end := offset + col
+	if end > len(text) {
+		end = len(text)
+	}
+	return end
+}
+
 // sqlComplete is called when the user presses Tab in the SQL editor.
 // It finds completions for the word before the cursor and either inserts
 // the single match directly or shows a popup list for the user to pick from.
+// When the cursor is at whitespace / beginning of a word, all completions
+// are shown so Tab always produces visible output.
 func (app *App) sqlComplete(editor *tview.TextArea) {
-	_, cursorPos, _ := editor.GetSelection() // byte offset of cursor (no selection)
 	text := editor.GetText()
-	if cursorPos > len(text) {
-		cursorPos = len(text)
-	}
+	row, col, _, _ := editor.GetCursor()
+	cursorPos := cursorByteOffset(text, row, col)
 
 	// Scan backward to find the start of the current word / keyword fragment.
 	wordStart := cursorPos
@@ -43,9 +61,6 @@ func (app *App) sqlComplete(editor *tview.TextArea) {
 		wordStart--
 	}
 	prefix := text[wordStart:cursorPos]
-	if prefix == "" {
-		return
-	}
 
 	items := app.buildCompletions(prefix)
 	if len(items) == 0 {
@@ -59,7 +74,7 @@ func (app *App) sqlComplete(editor *tview.TextArea) {
 }
 
 // buildCompletions returns all keywords and table names that match prefix
-// (case-insensitive), sorted with exact-case-prefix first, then alpha.
+// (case-insensitive). An empty prefix matches everything.
 func (app *App) buildCompletions(prefix string) []string {
 	upper := strings.ToUpper(prefix)
 	seen := make(map[string]struct{})
@@ -67,7 +82,7 @@ func (app *App) buildCompletions(prefix string) []string {
 
 	// Keywords
 	for _, kw := range sqlKeywords {
-		if strings.HasPrefix(kw, upper) {
+		if upper == "" || strings.HasPrefix(kw, upper) {
 			if _, ok := seen[kw]; !ok {
 				seen[kw] = struct{}{}
 				matches = append(matches, kw)
@@ -85,7 +100,7 @@ func (app *App) buildCompletions(prefix string) []string {
 				schema, table := row[0], row[1]
 				fqn := schema + "." + table
 				for _, candidate := range []string{table, fqn} {
-					if strings.HasPrefix(strings.ToUpper(candidate), upper) {
+					if upper == "" || strings.HasPrefix(strings.ToUpper(candidate), upper) {
 						if _, ok := seen[candidate]; !ok {
 							seen[candidate] = struct{}{}
 							matches = append(matches, candidate)
