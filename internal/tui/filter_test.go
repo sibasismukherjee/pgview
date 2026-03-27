@@ -17,8 +17,8 @@ var testCols = []columnInfo{
 var testColsTyped = []columnInfo{
 	{Name: "id"},
 	{Name: "name"},
-	{Name: "tags", OID: 1009},   // text[]
-	{Name: "meta", OID: 3802},   // jsonb
+	{Name: "tags", OID: 1009}, // text[]
+	{Name: "meta", OID: 3802}, // jsonb
 	{Name: "score"},
 }
 
