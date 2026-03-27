@@ -67,11 +67,7 @@ func (app *App) showData() {
 			app.dataWidget.ScrollToEnd()
 			return nil
 		case event.Rune() == 'f':
-			row, col := app.dataWidget.GetSelection()
-			cell := app.dataWidget.GetCell(row, col)
-			if cell != nil {
-				app.showCellView(strings.TrimSpace(cell.Text))
-			}
+			app.showRowView()
 			return nil
 		case event.Rune() == 'i':
 			app.statsCachedTable = "" // force refresh
@@ -82,33 +78,6 @@ func (app *App) showData() {
 	})
 }
 
-// showCellView opens a full-screen popup displaying the raw text of a cell.
-// Useful for inspecting JSON payloads, long strings, and other wide values.
-func (app *App) showCellView(content string) {
-	const pageCellView = "cellview"
-	tv := tview.NewTextView().
-		SetText(content).
-		SetWordWrap(true).
-		SetDynamicColors(false)
-	tv.SetBackgroundColor(tcell.ColorDefault)
-
-	frame := tview.NewFrame(tv).
-		SetBorders(1, 1, 1, 1, 1, 1).
-		AddText("[::b]Cell Content[::-]  [grey]Esc[::-] close", true, tview.AlignLeft, colPageTitle)
-	frame.SetBackgroundColor(tcell.ColorDefault)
-	frame.SetBorderColor(colBorder)
-
-	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			app.pages.RemovePage(pageCellView)
-			app.tv.SetFocus(app.dataWidget)
-		}
-		return event
-	})
-
-	app.pages.AddPage(pageCellView, frame, true, true)
-	app.tv.SetFocus(tv)
-}
 
 func (app *App) loadData() {
 	t := app.dataWidget
