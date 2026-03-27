@@ -7,10 +7,13 @@ import "strings"
 // (DataType == "ARRAY") it carries the element type with a leading underscore,
 // e.g. "_text", "_jsonb", "_uuid", which lets typeOperators pick the right
 // operators for the specific array element type.
+// OID is the PostgreSQL data type OID returned by the server; it is used by
+// the filter parser to generate element-wise SQL for array/JSONB columns.
 type columnInfo struct {
 	Name     string
 	DataType string
 	UdtName  string
+	OID      uint32
 }
 
 // clauseKeywords are SQL clause starters we recognise. Multi-word forms come

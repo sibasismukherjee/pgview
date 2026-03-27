@@ -6,41 +6,81 @@ Context and guidance for AI agents and developers working in this repository.
 
 ## What this repo does
 
-`pgview` is a lightweight, console-based PostgreSQL viewer and SQL runner written in Go. It accepts a proxy/connection URL, username, and password, then starts an interactive REPL for browsing tables, inspecting columns, and executing SQL queries.
+`pgview` is a lightweight, keyboard-driven PostgreSQL browser for the terminal, built in Go with [`tview`](https://github.com/rivo/tview) and [`tcell`](https://github.com/gdamore/tcell). It accepts a connection URL, username, and password, then starts a full-screen TUI for browsing tables, inspecting columns, paginating rows, filtering data, and running SQL queries.
 
 ---
 
 ## Repository layout
 
 ```
-main.go                  # Entry point: flag parsing, prompting, DB connect, start UI
+main.go                        # Entry point: flag parsing, credential prompts, DB connect, start UI
 internal/
   db/
-    client.go            # PostgreSQL client (pgx/v5): Connect, Query, Exec, ListTables, DescribeTable
-  ui/
-    console.go           # Interactive REPL loop, backslash commands, SQL routing
-    table.go             # ASCII table formatter for QueryResult
-Makefile                 # Build, install, clean, test targets
-go.mod / go.sum          # Go module definitions
+    client.go                  # PostgreSQL client (pgx/v5): Connect, Query, Exec, ListTables, DescribeTable, TableInfo
+  tui/
+    app.go                     # App struct, layout, global key bindings, connPanel, header/footer helpers
+    theme.go                   # Colour palette (VSCode Dark+), OID constants, hotkey tooltip strings
+    tableview.go               # Table list view: list, filter, stats
+    dataview.go                # Data view: paginated rows, filter prompt, cell viewer
+    filter.go                  # Filter DSL parser: col=val / col>val / freetext → SQL WHERE fragment
+    context.go                 # SQL clause detection, table extraction, operator type-matching
+    completion.go              # Tab-completion engine for the SQL editor
+    descview.go                # Describe view: column schema, types, nullability, defaults
+    sqlview.go                 # SQL editor: full-screen input, run, history panel, completion
+Makefile                       # Build, install, clean, test, lint targets
+go.mod / go.sum                # Go module definitions
 ```
 
 ---
 
 ## Key design decisions
 
-- **`pgx/v5` direct API** (not `database/sql`): simpler, no driver registration, better error types.
-- **`internal/` packages**: db and ui are unexported packages — not intended as a library.
-- **SQL routing in `ui/console.go`**: `SELECT`/`SHOW`/`EXPLAIN`/`WITH`/`TABLE` go through `client.Query()` (returns rows); all other statements go through `client.Exec()` (returns command tag).
-- **Multi-line SQL**: input is buffered until a line ending with `;` is detected.
-- **Backslash commands**: only parsed when no SQL is buffered (avoids conflicts with SQL strings containing `\`).
+- **`pgx/v5` direct API** (not `database/sql`): better error types, OID access via `rows.FieldDescriptions()`.
+- **`QueryExecModeSimpleProtocol`**: used unconditionally for compatibility with PgBouncer transaction mode. Extended protocol cannot be probed reliably across pooler backends.
+- **`internal/tui` package**: all TUI code lives here; `App` is the central struct wiring all views together.
+- **`tview.Pages`** for view switching: each view (table list, data, describe, SQL editor) is a named page. `switchPage()` sets the active page and returns focus.
+- **`pgIdent()`** for all identifier quoting: double-quote escaping prevents SQL injection via table/column names.
 
 ---
 
-## Adding a new backslash command
+## Filter DSL (`filter.go`)
 
-1. Add a `case \<cmd>:` block in `handleCommand()` in `internal/ui/console.go`.
-2. Add the corresponding method to `internal/db/client.go` if it needs a new query.
-3. Document the command in the `helpText` constant in `console.go` and in `README.md`.
+The data view `/` filter accepts a mini-language parsed by `parseFilter(input, columns)`:
+
+| Syntax | SQL generated |
+|--------|---------------|
+| `col=val` | `'val' = ANY(col)` for array columns; `col::text ILIKE 'val'` for scalars |
+| `col=%val%` | `EXISTS (SELECT 1 FROM unnest(col) _t WHERE _t::text ILIKE '%val%')` for arrays |
+| `col!=val` | `NOT ('val' = ANY(col))` for arrays; `col::text NOT ILIKE 'val'` for scalars |
+| `col>val` / `col>=val` etc. | `col > 'val'` |
+| `freetext` | `col1::text ILIKE '%freetext%' OR col2::text ILIKE '%freetext%' …` |
+
+Multiple terms are whitespace-separated and AND-ed. Column types are detected via PostgreSQL OIDs from `rows.FieldDescriptions()` and cached in `app.tableColumns` after each query.
+
+JSONB columns (OID 3802/114) use `col @> jsonb_build_array(val::text)` for exact match and `EXISTS (SELECT 1 FROM jsonb_array_elements_text(col) _t WHERE _t ILIKE val)` for wildcard patterns.
+
+---
+
+## SQL completion (`completion.go`, `context.go`)
+
+`Tab` in the SQL editor triggers `contextualCompletion()`:
+
+1. **Operator** — if the previous token is a known column in a WHERE/ON/HAVING clause, suggest the type-appropriate operator (`LIKE` for text, `>=` for timestamps, `IS TRUE` for booleans, `->` for JSON, `= ANY(` for arrays).
+2. **Table name** — in FROM/JOIN context.
+3. **Column name** — in SELECT/WHERE/ORDER BY/etc. context.
+4. **SQL keyword or table name** — fallback.
+
+Column schema is fetched lazily via `DescribeTable` and cached per table per editor session.
+
+---
+
+## Adding a new view
+
+1. Create `internal/tui/<view>.go` with a `show<View>()` method on `*App`.
+2. Add a page name constant (e.g. `const pageMyView = "myview"`).
+3. In `show<View>()`, create the widget, call `app.pages.AddPage(...)`, `app.switchPage(...)`, `app.setTooltip(...)`.
+4. Add the hotkey string constant to `theme.go`.
+5. Wire a key binding in the calling view's `SetInputCapture`.
 
 ---
 
@@ -50,11 +90,9 @@ go.mod / go.sum          # Go module definitions
 
 | Input | Behaviour |
 |---|---|
-| `postgres://...` or `postgresql://...` | Parsed as URL; username/password injected if provided |
+| `postgres://...` or `postgresql://...` | Parsed as URL; username/password/dbname/sslmode injected if provided |
 | `host:port` | Expanded to full DSN with provided credentials |
 | `host` (no port) | Defaults to port 5432 |
-
-`sslmode` is always appended/set in the DSN.
 
 ---
 
@@ -62,7 +100,9 @@ go.mod / go.sum          # Go module definitions
 
 | Package | Purpose |
 |---|---|
-| `github.com/jackc/pgx/v5` | PostgreSQL driver (direct API) |
+| `github.com/jackc/pgx/v5` | PostgreSQL driver (OIDs, simple protocol, pgconn error types) |
+| `github.com/rivo/tview` | Full-screen TUI framework (tables, text views, flex layouts, pages) |
+| `github.com/gdamore/tcell/v2` | Terminal cell library (colours, key events) |
 | `golang.org/x/term` | Secure password prompt (no echo) |
 
 ---
@@ -70,10 +110,10 @@ go.mod / go.sum          # Go module definitions
 ## Build
 
 ```bash
-make build    # → bin/pgview
+make build    # → ./pgview
 make install  # → $GOPATH/bin/pgview
-make tidy     # go mod tidy + verify
-make clean    # remove bin/
+make test     # go test ./... -race
+make lint     # golangci-lint run
+make tidy     # go mod tidy
+make clean    # remove build artefacts
 ```
-
-The `VERSION` variable in the Makefile is set from `git describe --tags` and injected via `-ldflags` into `main.version`.

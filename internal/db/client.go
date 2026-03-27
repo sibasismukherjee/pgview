@@ -145,7 +145,7 @@ func (c *Client) TableInfo(schema, table string) (estRows int64, pkCols string, 
 		 JOIN pg_namespace n ON c.relnamespace = n.oid
 		 WHERE n.nspname = '%s' AND c.relname = '%s'`, schema, table,
 	)); err == nil && len(r.Rows) > 0 {
-		fmt.Sscanf(r.Rows[0][0], "%d", &estRows)
+		_, _ = fmt.Sscanf(r.Rows[0][0], "%d", &estRows)
 	}
 	if r, err := c.Query(fmt.Sprintf(
 		`SELECT COALESCE(string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position), '')
@@ -161,7 +161,7 @@ func (c *Client) TableInfo(schema, table string) (estRows int64, pkCols string, 
 		`SELECT COUNT(*) FROM pg_indexes
 		 WHERE schemaname = '%s' AND tablename = '%s'`, schema, table,
 	)); err == nil && len(r.Rows) > 0 {
-		fmt.Sscanf(r.Rows[0][0], "%d", &idxCount)
+		_, _ = fmt.Sscanf(r.Rows[0][0], "%d", &idxCount)
 	}
 	return
 }

@@ -144,10 +144,14 @@ func (app *App) loadData() {
 		return
 	}
 
-	// Cache column names for filter parsing on subsequent loads.
+	// Cache column names and OIDs for filter parsing on subsequent loads.
 	app.tableColumns = make([]columnInfo, len(result.Columns))
 	for i, name := range result.Columns {
-		app.tableColumns[i] = columnInfo{Name: name}
+		var oid uint32
+		if i < len(result.ColumnOIDs) {
+			oid = result.ColumnOIDs[i]
+		}
+		app.tableColumns[i] = columnInfo{Name: name, OID: oid}
 	}
 
 	// Column headers
@@ -188,12 +192,16 @@ func (app *App) loadData() {
 	rowCount := row - 1
 	app.dataRowCount = rowCount
 	app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", rowCount, app.statsForCurrentTable()))
-	app.setFooter("")
+	if whereClause != "" {
+		app.setFooter(fmt.Sprintf("[#6a6a6a]WHERE %s[-]", whereClause))
+	} else {
+		app.setFooter("")
+	}
 	t.ScrollToBeginning()
 }
 
 func (app *App) dataFilterPrompt() {
-	app.showCmdBar("[::b]filter[::-]", "col=val  col!=val  col>val  freetext…", func(key tcell.Key) {
+	app.showCmdBar("[::b]filter[::-]", "col=exact  col=%sub%  col>val  freetext…", func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			app.dataFilter = app.cmdBar.GetText()
 			app.dataOffset = 0
@@ -202,6 +210,7 @@ func (app *App) dataFilterPrompt() {
 		}
 		app.hideCmdBar()
 		app.loadData()
+		app.tv.SetFocus(app.dataWidget)
 	})
 }
 
