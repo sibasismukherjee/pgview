@@ -1,0 +1,57 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, search [existing issues](https://github.com/sibasismukherjee/pgview/issues) — the bug may already be reported.
+
+  - type: input
+    id: version
+    attributes:
+      label: pgview version
+      description: Run `pgview -version` and paste the output.
+      placeholder: "v0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      placeholder: "macOS 14.5, iTerm2 3.5 / Ubuntu 24.04, gnome-terminal"
+    validations:
+      required: true
+
+  - type: input
+    id: postgres
+    attributes:
+      label: PostgreSQL version (if relevant)
+      placeholder: "PostgreSQL 16.2 / PgBouncer 1.22"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect to a database with an array column
+        2. Press `/`, type `tags=eg`
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include any error output or a screenshot if helpful.
+    validations:
+      required: true

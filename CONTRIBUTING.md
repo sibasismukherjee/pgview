@@ -157,9 +157,8 @@ directly on the PR page.
 - Error strings are lower-case and do not end with a period (Go convention).
 - TUI-related code lives in `internal/tui/`. Keep each view in its own file
   (`tableview.go`, `dataview.go`, etc.).
-- Database queries live in `internal/db/`. Never construct SQL in the TUI layer.
-- AI integration lives in `internal/ai/`. The TUI calls into `ai` but `ai`
-  must not import `tui`.
+- Database queries live in `internal/db/client.go`. Never construct raw SQL strings in the TUI layer — use `pgIdent()` for identifier quoting and `sqlLiteral()` for value quoting.
+- Filter SQL generation lives in `internal/tui/filter.go`. SQL completion lives in `internal/tui/completion.go` and `context.go`.
 
 ---
 
@@ -169,26 +168,30 @@ directly on the PR page.
 pgview/
 ├── main.go                  Entry point — flag parsing, prompts, connects to DB
 ├── Makefile                 Build, install, test, lint targets
+├── CHANGELOG.md             Release history
 ├── internal/
 │   ├── db/
-│   │   ├── client.go        PostgreSQL connection and query helpers
+│   │   ├── client.go        PostgreSQL connection, Query, Exec, TableInfo
 │   │   └── client_test.go
-│   ├── ai/
-│   │   ├── claude.go        Claude CLI integration (AskClaude, TuneQuery)
-│   │   ├── claude_test.go
-│   │   ├── schema.go        Builds schema DDL context for Claude
-│   │   └── schema_test.go
 │   └── tui/
-│       ├── app.go           App struct, layout, cmdBar, navigation
-│       ├── theme.go         Colour palette and hotkey constants
+│       ├── app.go           App struct, layout, cmdBar, header/footer helpers
+│       ├── theme.go         Colour palette, OID constants, hotkey strings
 │       ├── tableview.go     Table list page
-│       ├── dataview.go      Data rows page with pagination
+│       ├── dataview.go      Data rows page with filter prompt and cell viewer
+│       ├── filter.go        Filter DSL parser → SQL WHERE fragment
+│       ├── context.go       SQL clause detection, operator type-matching
+│       ├── completion.go    Tab-completion engine for the SQL editor
 │       ├── descview.go      Column describe page
-│       ├── sqlview.go       SQL editor modal
+│       ├── sqlview.go       SQL editor with history panel
+│       ├── filter_test.go
+│       ├── context_test.go
+│       ├── completion_test.go
 │       └── helpers_test.go
 └── .github/
+    ├── ISSUE_TEMPLATE/      Bug report and feature request forms
+    ├── pull_request_template.md
     └── workflows/
         ├── build.yml
-        ├── ci.yml           Tests
+        ├── ci.yml
         └── lint.yml
 ```
