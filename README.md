@@ -20,7 +20,7 @@
 - **SQL editor** — open a full-screen SQL editor with `e`, run with `Ctrl+E`
 - **SQL templates panel** — `Ctrl+T` opens a side panel with pre-filled Query / Write / DDL templates built from the current table's real column names; select one to load it into the editor
 - **Schema-aware Tab completion** — clause-sensitive suggestions: type-matched operators after column names (LIKE for text, >= for timestamps, IS TRUE for booleans, = ANY( for arrays), table names after FROM/JOIN, column names in SELECT/WHERE
-- **Full cell viewer** — press `f` in data view to inspect long JSON blobs or wide values in a popup
+- **Row viewer and inline editor** — press `f` in data view to open a full-screen two-column table (Column | Value) for the selected row; press `e`/`Enter` to edit any field in-place, `Ctrl+S` to commit as an `UPDATE`, `Esc` to close
 - **Query history** — `Ctrl+R` in the SQL editor opens a navigable history panel
 - **Describe columns** — schema, type, nullability, defaults at a glance
 - **Secure password prompt** — no echo, uses terminal raw mode
@@ -45,7 +45,7 @@
 **Data view with filter**
 ```
  pgview              │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data  public.routes
- admin@mydb · local  │  <d> describe  <f> full cell       │  <r> refresh  <i> stats  <e> SQL  │  42 rows  ~1.2K est · PK: id
+ admin@mydb · local  │  <d> describe  <f> row view/edit   │  <r> refresh  <i> stats  <e> SQL  │  42 rows  ~1.2K est · PK: id
 ─────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────
   id    name              status    created_at           tags
 ▶ 1     Alice Johnson     active    2024-01-15 09:23:11  {platform,growth}
@@ -53,6 +53,24 @@
   7     Eve Martinez      active    2024-05-01 16:14:09  {growth}
 
  WHERE "status"::text ILIKE 'active'
+```
+
+**Row viewer / inline editor** (`f` on any row)
+```
+ Row Viewer  <e>/<↵> edit  <Ctrl+S> save  <Esc> close  · public.routes · row 1
+─────────────────────┬──────────────────────────────────────────────────────────
+ Column              │ Value
+─────────────────────┼──────────────────────────────────────────────────────────
+ id                  │  1
+ name                │  Alice Johnson
+▶ status             │  active                              (edited)
+ created_at          │  2024-01-15 09:23:11
+ tags                │  {platform,growth}
+─────────────────────┴──────────────────────────────────────────────────────────
+
+ 1 unsaved change(s) — Ctrl+S to save, Esc to discard
+
+ edit status  ▏ inactive▌
 ```
 
 **SQL editor with templates panel and inline completion**
@@ -160,12 +178,25 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `n` / `p` | Next / previous page (200 rows per page) |
 | `g` / `G` | Jump to top / bottom |
 | `/` | Open filter prompt |
-| `f` | Full cell viewer (popup for long values) |
+| `f` | Row viewer / editor — see all columns of the selected row, edit any field |
 | `d` | Describe columns of this table |
 | `i` | Refresh table stats (row count, PK, indexes) |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
 | `Esc` | Back to table list (clears filter) |
+
+### Row viewer / editor
+
+Opened with `f` from the data view. Displays every column of the selected row in a two-column bordered table.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate fields |
+| `e` / `Enter` | Edit the selected field (pre-filled with current value) |
+| `Ctrl+S` | Save — runs `UPDATE … SET … WHERE pk = …` and refreshes data view |
+| `Esc` | Close and return to data view |
+
+Modified fields are highlighted in teal with an `(edited)` marker. The footer counts unsaved changes. Type `NULL` (any case) to set a field to `NULL`.
 
 ### Filter DSL
 
