@@ -39,6 +39,9 @@ func (app *App) showDescribe() {
 			app.dataFilter = ""
 			app.showData()
 			return nil
+		case event.Rune() == 'e':
+			app.openSQL("")
+			return nil
 		case event.Rune() == 'q':
 			app.tv.Stop()
 			return nil

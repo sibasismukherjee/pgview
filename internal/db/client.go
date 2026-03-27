@@ -25,9 +25,20 @@ type QueryResult struct {
 }
 
 // Connect builds a DSN from the provided components and opens a connection.
+// Simple query protocol is used unconditionally: it is compatible with direct
+// PostgreSQL, PgBouncer session mode, and PgBouncer transaction mode alike.
+// Extended protocol (prepared-statement caching) cannot be probed reliably
+// for transaction-mode poolers — both probe queries often hit the same backend
+// and appear to succeed, only to fail when a real query is routed elsewhere.
+// For a human-operated TUI the efficiency difference is imperceptible.
 func Connect(proxyURL, username, password, dbname, sslmode string) (*Client, error) {
 	dsn := buildDSN(proxyURL, username, password, dbname, sslmode)
-	conn, err := pgx.Connect(context.Background(), dsn)
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	conn, err := pgx.ConnectConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +126,44 @@ func (c *Client) DescribeTable(schema, table string) (*QueryResult, error) {
 			data_type,
 			COALESCE(character_maximum_length::text, numeric_precision::text, '') AS length,
 			is_nullable,
-			COALESCE(column_default, '') AS default
+			COALESCE(column_default, '') AS column_default,
+			udt_name
 		FROM information_schema.columns
 		WHERE table_schema = '%s' AND table_name = '%s'
 		ORDER BY ordinal_position
 	`, schema, table)
 	return c.Query(sql)
+}
+
+// TableInfo returns a quick metadata summary for a table without a full table
+// scan: estimated row count from planner stats, primary key columns, and the
+// number of indexes. Errors are silently ignored — callers treat missing data
+// as informational only.
+func (c *Client) TableInfo(schema, table string) (estRows int64, pkCols string, idxCount int64) {
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT reltuples::bigint FROM pg_class c
+		 JOIN pg_namespace n ON c.relnamespace = n.oid
+		 WHERE n.nspname = '%s' AND c.relname = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		_, _ = fmt.Sscanf(r.Rows[0][0], "%d", &estRows)
+	}
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT COALESCE(string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position), '')
+		 FROM information_schema.table_constraints tc
+		 JOIN information_schema.key_column_usage kcu
+		   USING (constraint_name, table_schema, table_name)
+		 WHERE tc.constraint_type = 'PRIMARY KEY'
+		   AND tc.table_schema = '%s' AND tc.table_name = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		pkCols = r.Rows[0][0]
+	}
+	if r, err := c.Query(fmt.Sprintf(
+		`SELECT COUNT(*) FROM pg_indexes
+		 WHERE schemaname = '%s' AND tablename = '%s'`, schema, table,
+	)); err == nil && len(r.Rows) > 0 {
+		_, _ = fmt.Sscanf(r.Rows[0][0], "%d", &idxCount)
+	}
+	return
 }
 
 // ListSchemas returns all non-system schemas.

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -22,15 +23,19 @@ type App struct {
 	pages  *tview.Pages
 	client *db.Client
 
-	header  *tview.TextView
-	tooltip *tview.TextView // hotkey bar below the header
-	footer  *tview.TextView // status bar (query results, errors)
-	cmdBar  *tview.InputField
-	layout  *tview.Flex
+	connPanel *tview.TextView // left column — connection info
+	hintBar   *tview.TextView // middle column — hotkeys for current view
+	infoBar   *tview.TextView // right column — page title + table stats
+	footer    *tview.TextView // bottom strip — transient messages only
+	cmdBar    *tview.InputField
+	layout    *tview.Flex
+
+	infoLine1 string // current infoBar row 1 (set by setHeader, read by setInfoStats)
 
 	// Current state
 	dbName     string
 	dbUser     string
+	dbHost     string // host:port extracted from DSN
 	curTable   string // "schema.table" currently viewed/selected
 	lastSQL    string // last executed query (for \tune)
 	dataOffset int    // pagination offset for data view
@@ -40,6 +45,14 @@ type App struct {
 	tableListWidget *tview.Table
 	dataWidget      *tview.Table
 	descWidget      *tview.Table
+
+	sqlHistory   []string     // most-recent-first; capped at 50
+	tableColumns []columnInfo // columns of curTable, populated on first load
+
+	// Table stats cache — populated once per curTable, used in footer.
+	statsCachedTable string
+	statsFooter      string
+	dataRowCount     int // last rendered row count from loadData
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.
@@ -51,8 +64,14 @@ func Run(client *db.Client) {
 	}
 	app.dbName = client.CurrentDB()
 	app.dbUser = client.CurrentUser()
+	if u, err := url.Parse(client.DSN); err == nil && u.Host != "" {
+		app.dbHost = u.Host
+	} else {
+		app.dbHost = "?"
+	}
 
 	app.buildLayout()
+	app.setConnPanel()
 	app.showTableList()
 
 	app.tv.SetRoot(app.layout, true).EnableMouse(true)
@@ -61,18 +80,44 @@ func Run(client *db.Client) {
 	}
 }
 
-// buildLayout assembles the root flex: header | tooltip | pages | cmdBar | footer.
+// buildLayout assembles the root flex:
+// headerBar (connPanel | hintBar | infoBar) | pages | cmdBar | footer.
+//
+// The 2-row headerBar replaces the old 4-row topArea + 2-row tooltip,
+// saving 4 rows of vertical space for content.
 func (app *App) buildLayout() {
-	app.header = tview.NewTextView().
+	// Left column — connection info (sidebar gray, fixed 30 chars).
+	app.connPanel = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft)
-	app.header.SetBackgroundColor(colHeader)
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
+	app.connPanel.SetBackgroundColor(colTooltip)
+	app.connPanel.SetTextColor(colTooltipFg)
 
-	app.tooltip = tview.NewTextView().
+	// Middle column — hotkeys for the current view (editor dark, flex).
+	app.hintBar = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft)
-	app.tooltip.SetBackgroundColor(colTooltip)
-	app.tooltip.SetTextColor(colTooltipFg)
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
+	app.hintBar.SetBackgroundColor(colHeader)
+	app.hintBar.SetTextColor(colTooltipFg)
+
+	// Right column — page title + table stats (deep navy, fixed 44 chars).
+	app.infoBar = tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignLeft).
+		SetWordWrap(false).
+		SetWrap(false)
+	app.infoBar.SetBackgroundColor(colInfoBg)
+	app.infoBar.SetTextColor(colInfoFg)
+
+	headerBar := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(app.connPanel, 0, 1, false).
+		AddItem(app.hintBar, 0, 1, false).
+		AddItem(app.infoBar, 0, 1, false)
 
 	app.footer = tview.NewTextView().
 		SetDynamicColors(true).
@@ -88,8 +133,7 @@ func (app *App) buildLayout() {
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(app.header, 1, 0, false).
-		AddItem(app.tooltip, 1, 0, false).
+		AddItem(headerBar, 4, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.footer, 1, 0, false)
@@ -99,20 +143,47 @@ func (app *App) buildLayout() {
 
 // ── Header / tooltip / footer helpers ────────────────────────────────────────
 
+// setHeader writes the page title (and optional subtitle) to infoBar row 1
+// and clears row 2. Call setInfoStats separately to populate row 2.
 func (app *App) setHeader(pageTitle, subtitle string) {
-	right := fmt.Sprintf("%s@%s", app.dbUser, app.dbName)
-	gap := 80 - len(pageTitle) - len(subtitle) - len(right)
-	if gap < 1 {
-		gap = 1
+	if subtitle != "" {
+		app.infoLine1 = fmt.Sprintf("\n [#569cd6::b]%s[-]  [#6a6a6a]%s[-]", pageTitle, subtitle)
+	} else {
+		app.infoLine1 = fmt.Sprintf("\n [#569cd6::b]%s[-]", pageTitle)
 	}
-	app.header.SetText(fmt.Sprintf(
-		" [white::b]pgview[::] [#569cd6]%s[-] %s%s[#6a6a6a]%s[-]",
-		pageTitle, subtitle, strings.Repeat(" ", gap), right,
+	app.infoBar.SetText(app.infoLine1)
+}
+
+// setConnPanel populates the connection info panel (2 rows, left column).
+// Called once at startup; connection details don't change during a session.
+func (app *App) setConnPanel() {
+	userDB := truncate(app.dbUser+"@"+app.dbName, 26)
+	host := truncate(app.dbHost, 22)
+	app.connPanel.SetText(fmt.Sprintf(
+		"\n [white::b]pgview[-]\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
+		userDB, host,
 	))
 }
 
+func truncate(s string, max int) string {
+	if len(s) > max {
+		return s[:max-1] + "…"
+	}
+	return s
+}
+
 func (app *App) setTooltip(hotkeys string) {
-	app.tooltip.SetText(hotkeys)
+	app.hintBar.SetText(hotkeys)
+}
+
+// setInfoStats writes table stats to infoBar row 2 without disturbing row 1.
+// Pass "" to clear row 2 (e.g. when navigating to a view with no stats).
+func (app *App) setInfoStats(stats string) {
+	if stats == "" {
+		app.infoBar.SetText(app.infoLine1)
+	} else {
+		app.infoBar.SetText(app.infoLine1 + "\n " + stats)
+	}
 }
 
 func (app *App) setFooter(msg string) {
@@ -121,6 +192,42 @@ func (app *App) setFooter(msg string) {
 		return
 	}
 	app.footer.SetText(" " + msg)
+}
+
+// ── Table stats helpers ──────────────────────────────────────────────────────
+
+// statsForCurrentTable returns a formatted stats string for app.curTable,
+// cached per table so the 3 meta-queries only run once per navigation.
+func (app *App) statsForCurrentTable() string {
+	if app.statsCachedTable == app.curTable {
+		return app.statsFooter
+	}
+	parts := strings.SplitN(app.curTable, ".", 2)
+	if len(parts) != 2 || app.client == nil {
+		return ""
+	}
+	estRows, pkCols, idxCount := app.client.TableInfo(parts[0], parts[1])
+	pk := pkCols
+	if pk == "" {
+		pk = "—"
+	}
+	app.statsFooter = fmt.Sprintf("[#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
+		fmtCount(estRows), pk, idxCount)
+	app.statsCachedTable = app.curTable
+	return app.statsFooter
+}
+
+func fmtCount(n int64) string {
+	if n < 0 {
+		return "?"
+	}
+	if n >= 1_000_000 {
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	}
+	if n >= 1_000 {
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	}
+	return fmt.Sprintf("%d", n)
 }
 
 // ── CmdBar (filter / SQL / AI input bar) ────────────────────────────────────

@@ -1,30 +1,28 @@
 package tui
 
 import (
-	"sort"
 	"strings"
 	"unicode"
-
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 )
 
-// sqlKeywords is the list offered as completions when the prefix matches.
+// sqlKeywords ordered by frequency so topCompletion returns the most useful
+// match first (e.g. "SELECT" before "SET" for prefix "S").
 var sqlKeywords = []string{
-	"SELECT", "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT", "OFFSET",
+	"SELECT", "FROM", "WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "INNER JOIN",
+	"ON", "GROUP BY", "ORDER BY", "HAVING", "LIMIT", "OFFSET",
 	"INSERT INTO", "VALUES", "UPDATE", "SET", "DELETE FROM",
-	"JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN", "FULL JOIN", "CROSS JOIN", "ON",
-	"AND", "OR", "NOT", "IN", "NOT IN", "EXISTS", "NOT EXISTS",
-	"IS NULL", "IS NOT NULL", "LIKE", "ILIKE", "BETWEEN",
-	"DISTINCT", "AS", "CASE", "WHEN", "THEN", "ELSE", "END",
-	"COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE", "NULLIF", "NOW", "CURRENT_TIMESTAMP",
+	"AS", "DISTINCT", "NOT", "IN", "NOT IN", "IS NULL", "IS NOT NULL",
+	"LIKE", "ILIKE", "BETWEEN", "EXISTS", "NOT EXISTS",
+	"CASE", "WHEN", "THEN", "ELSE", "END",
+	"COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE", "NULLIF",
+	"NOW", "CURRENT_TIMESTAMP", "RETURNING", "WITH",
+	"UNION", "UNION ALL", "INTERSECT", "EXCEPT",
+	"RIGHT JOIN", "FULL JOIN", "CROSS JOIN",
 	"CREATE TABLE", "DROP TABLE", "ALTER TABLE", "ADD COLUMN", "DROP COLUMN",
 	"BEGIN", "COMMIT", "ROLLBACK", "EXPLAIN", "EXPLAIN ANALYZE",
-	"RETURNING", "WITH", "UNION", "UNION ALL", "INTERSECT", "EXCEPT",
 }
 
-// cursorByteOffset converts the row/column cursor position returned by
-// GetCursor into a byte offset within the full text string.
+// cursorByteOffset converts GetCursor() (row, col) into a byte offset within text.
 func cursorByteOffset(text string, row, col int) int {
 	offset := 0
 	for i := 0; i < row; i++ {
@@ -41,125 +39,37 @@ func cursorByteOffset(text string, row, col int) int {
 	return end
 }
 
-// sqlComplete is called when the user presses Tab in the SQL editor.
-// It finds completions for the word before the cursor and either inserts
-// the single match directly or shows a popup list for the user to pick from.
-// When the cursor is at whitespace / beginning of a word, all completions
-// are shown so Tab always produces visible output.
-func (app *App) sqlComplete(editor *tview.TextArea) {
-	text := editor.GetText()
-	row, col, _, _ := editor.GetCursor()
-	cursorPos := cursorByteOffset(text, row, col)
-
-	// Scan backward to find the start of the current word / keyword fragment.
-	wordStart := cursorPos
-	for wordStart > 0 {
-		r := rune(text[wordStart-1])
+// wordAtCursor returns the word immediately before cursorPos and the byte
+// offset at which that word starts within text.
+func wordAtCursor(text string, cursorPos int) (word string, start int) {
+	start = cursorPos
+	for start > 0 {
+		r := rune(text[start-1])
 		if unicode.IsSpace(r) || r == ',' || r == '(' || r == ')' || r == ';' {
 			break
 		}
-		wordStart--
+		start--
 	}
-	prefix := text[wordStart:cursorPos]
-
-	items := app.buildCompletions(prefix)
-	if len(items) == 0 {
-		return
-	}
-	if len(items) == 1 {
-		editor.Replace(wordStart, cursorPos, items[0])
-		return
-	}
-	app.showCompletionPopup(editor, items, wordStart, cursorPos)
+	return text[start:cursorPos], start
 }
 
-// buildCompletions returns all keywords and table names that match prefix
-// (case-insensitive). An empty prefix matches everything.
-func (app *App) buildCompletions(prefix string) []string {
+// topCompletion returns the best single completion for prefix: keywords first
+// (in frequency order), then table names. Returns "" when there is no match
+// or when the prefix already fully equals the completion.
+func topCompletion(prefix string, tableNames []string) string {
+	if prefix == "" {
+		return ""
+	}
 	upper := strings.ToUpper(prefix)
-	seen := make(map[string]struct{})
-	var matches []string
-
-	// Keywords
 	for _, kw := range sqlKeywords {
-		if upper == "" || strings.HasPrefix(kw, upper) {
-			if _, ok := seen[kw]; !ok {
-				seen[kw] = struct{}{}
-				matches = append(matches, kw)
-			}
+		if strings.HasPrefix(kw, upper) && kw != upper {
+			return kw
 		}
 	}
-
-	// Table names (schema.table or just table)
-	if app.client != nil {
-		if result, err := app.client.ListTables(); err == nil {
-			for _, row := range result.Rows {
-				if len(row) < 2 {
-					continue
-				}
-				schema, table := row[0], row[1]
-				fqn := schema + "." + table
-				for _, candidate := range []string{table, fqn} {
-					if upper == "" || strings.HasPrefix(strings.ToUpper(candidate), upper) {
-						if _, ok := seen[candidate]; !ok {
-							seen[candidate] = struct{}{}
-							matches = append(matches, candidate)
-						}
-					}
-				}
-			}
+	for _, name := range tableNames {
+		if strings.HasPrefix(strings.ToUpper(name), upper) && strings.ToUpper(name) != upper {
+			return name
 		}
 	}
-
-	sort.Strings(matches)
-	return matches
-}
-
-// showCompletionPopup displays a tview.List overlay over the editor.
-// Selecting an item replaces the word-before-cursor with the chosen completion.
-func (app *App) showCompletionPopup(editor *tview.TextArea, items []string, wordStart, cursorPos int) {
-	const popupPage = "completion"
-
-	list := tview.NewList()
-	list.ShowSecondaryText(false)
-	list.SetBorder(true).SetTitle(" completions ")
-	list.SetBackgroundColor(tcell.NewRGBColor(37, 37, 38))
-	list.SetMainTextColor(tcell.ColorWhite)
-	list.SetSelectedBackgroundColor(tcell.NewRGBColor(9, 71, 113))
-	list.SetSelectedTextColor(tcell.ColorWhite)
-
-	closePopup := func() {
-		app.pages.RemovePage(popupPage)
-		app.tv.SetFocus(editor)
-	}
-
-	for _, item := range items {
-		completion := item // capture
-		list.AddItem(completion, "", 0, func() {
-			closePopup()
-			editor.Replace(wordStart, cursorPos, completion)
-		})
-	}
-
-	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape || event.Key() == tcell.KeyTab {
-			closePopup()
-			return nil
-		}
-		return event
-	})
-
-	app.pages.AddPage(popupPage, centeredModal(list, 40, 12), true, true)
-	app.tv.SetFocus(list)
-}
-
-// centeredModal wraps w in a Flex that centres it to (width, height) cells.
-func centeredModal(w tview.Primitive, width, height int) tview.Primitive {
-	return tview.NewFlex().
-		AddItem(nil, 0, 1, false).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(nil, 0, 1, false).
-			AddItem(w, height, 0, true).
-			AddItem(nil, 0, 1, false), width, 0, true).
-		AddItem(nil, 0, 1, false)
+	return ""
 }
