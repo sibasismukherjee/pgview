@@ -11,8 +11,8 @@ import (
 //
 // Syntax (terms are whitespace-separated and AND-ed together):
 //
-//	col=val    → "col"::text ILIKE '%val%'
-//	col!=val   → "col"::text NOT ILIKE '%val%'
+//	col=val    → "col"::text ILIKE 'val'   (exact; use col=%val% for substring)
+//	col!=val   → "col"::text NOT ILIKE 'val'
 //	col>val    → "col" > 'val'
 //	col<val    → "col" < 'val'
 //	col>=val   → "col" >= 'val'
@@ -21,6 +21,13 @@ import (
 //
 // col=val always produces a column filter; if the column doesn't exist PostgreSQL
 // returns a clear error. Bare free-text tokens search across all known columns.
+//
+// For = and !=, wildcards are NOT added automatically — include % yourself:
+//
+//	tags=eg      → exact match (ILIKE 'eg')
+//	tags=%eg%    → substring match (ILIKE '%eg%')
+//	tags=eg%     → prefix match (ILIKE 'eg%')
+//
 // All values are safely escaped to prevent SQL injection.
 func parseFilter(input string, columns []columnInfo) string {
 	input = strings.TrimSpace(input)
@@ -75,6 +82,30 @@ func tokeniseFilter(s string) []string {
 // Column names must start with a letter or underscore.
 var opRegex = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)(>=|<=|!=|>|<|=)(.+)$`)
 
+// knownArrayOIDs is the set of PostgreSQL built-in array type OIDs.
+// When a column has one of these OIDs, filters use unnest() for element-wise
+// matching rather than casting the whole array to text.
+var knownArrayOIDs = map[uint32]bool{
+	1000: true, // _bool
+	1001: true, // _bytea
+	1005: true, // _int2
+	1007: true, // _int4
+	1009: true, // _text
+	1014: true, // _bpchar
+	1015: true, // _varchar
+	1016: true, // _int8
+	1021: true, // _float4
+	1022: true, // _float8
+	1182: true, // _date
+	1183: true, // _time
+	1115: true, // _timestamp
+	1185: true, // _timestamptz
+	1231: true, // _numeric
+	2951: true, // _uuid
+}
+
+func isArrayOID(oid uint32) bool { return knownArrayOIDs[oid] }
+
 func filterTokenToSQL(tok string, columns []columnInfo) string {
 	m := opRegex.FindStringSubmatch(tok)
 	if m == nil {
@@ -88,18 +119,70 @@ func filterTokenToSQL(tok string, columns []columnInfo) string {
 		val = val[1 : len(val)-1]
 	}
 
+	// Look up the column's OID for type-aware SQL generation.
+	var oid uint32
+	for _, c := range columns {
+		if strings.EqualFold(c.Name, colName) {
+			oid = c.OID
+			break
+		}
+	}
+
 	// Always generate a column filter — no fallback to free text.
 	// If the column doesn't exist, PostgreSQL returns a clear error.
 	qcol := pgIdent(colName)
 	switch op {
 	case "=":
-		return fmt.Sprintf("%s::text ILIKE %s", qcol, sqlLiteralLike(val))
+		return elementWiseILIKE(qcol, oid, val, false)
 	case "!=":
-		return fmt.Sprintf("%s::text NOT ILIKE %s", qcol, sqlLiteralLike(val))
+		return elementWiseILIKE(qcol, oid, val, true)
 	case ">", "<", ">=", "<=":
 		return fmt.Sprintf("%s %s %s", qcol, op, sqlLiteral(val))
 	}
 	return ""
+}
+
+// elementWiseILIKE generates an equality/pattern condition for qcol against val.
+// For native array columns: exact → 'val' = ANY(col), wildcard → EXISTS+unnest+ILIKE.
+// For JSONB columns: exact → col @> jsonb_build_array(val::text), wildcard → EXISTS+ILIKE.
+// For scalars: col::text ILIKE val (no wildcards = exact case-insensitive match).
+func elementWiseILIKE(qcol string, oid uint32, val string, negate bool) string {
+	lit := sqlLiteral(val)
+	hasWildcard := strings.ContainsAny(val, "%_")
+
+	switch {
+	case isArrayOID(oid):
+		if !hasWildcard {
+			if negate {
+				return fmt.Sprintf("NOT (%s = ANY(%s))", lit, qcol)
+			}
+			return fmt.Sprintf("%s = ANY(%s)", lit, qcol)
+		}
+		// Wildcard: element-wise ILIKE via unnest.
+		if negate {
+			return fmt.Sprintf("NOT EXISTS (SELECT 1 FROM unnest(%s) _t WHERE _t::text ILIKE %s)", qcol, lit)
+		}
+		return fmt.Sprintf("EXISTS (SELECT 1 FROM unnest(%s) _t WHERE _t::text ILIKE %s)", qcol, lit)
+
+	case oid == oidJSONB || oid == oidJSON:
+		if !hasWildcard {
+			if negate {
+				return fmt.Sprintf("NOT (%s @> jsonb_build_array(%s::text))", qcol, lit)
+			}
+			return fmt.Sprintf("%s @> jsonb_build_array(%s::text)", qcol, lit)
+		}
+		// Wildcard: element-wise ILIKE via jsonb_array_elements_text.
+		if negate {
+			return fmt.Sprintf("NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(%s) _t WHERE _t ILIKE %s)", qcol, lit)
+		}
+		return fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements_text(%s) _t WHERE _t ILIKE %s)", qcol, lit)
+
+	default:
+		if negate {
+			return fmt.Sprintf("%s::text NOT ILIKE %s", qcol, lit)
+		}
+		return fmt.Sprintf("%s::text ILIKE %s", qcol, lit)
+	}
 }
 
 // freeTextClause builds an OR-joined ILIKE across all known columns.

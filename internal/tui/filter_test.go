@@ -14,6 +14,14 @@ var testCols = []columnInfo{
 	{Name: "score"},
 }
 
+var testColsTyped = []columnInfo{
+	{Name: "id"},
+	{Name: "name"},
+	{Name: "tags", OID: 1009},   // text[]
+	{Name: "meta", OID: 3802},   // jsonb
+	{Name: "score"},
+}
+
 func TestParseFilterEmpty(t *testing.T) {
 	if got := parseFilter("", testCols); got != "" {
 		t.Errorf("expected empty, got %q", got)
@@ -24,7 +32,17 @@ func TestParseFilterEmpty(t *testing.T) {
 }
 
 func TestParseFilterEquals(t *testing.T) {
+	// Exact match — no wildcards added automatically.
 	got := parseFilter("tags=ae", testCols)
+	want := `"tags"::text ILIKE 'ae'`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterEqualsSubstring(t *testing.T) {
+	// User supplies wildcards explicitly for substring match.
+	got := parseFilter("tags=%ae%", testCols)
 	want := `"tags"::text ILIKE '%ae%'`
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -33,7 +51,7 @@ func TestParseFilterEquals(t *testing.T) {
 
 func TestParseFilterNotEquals(t *testing.T) {
 	got := parseFilter("status!=active", testCols)
-	want := `"status"::text NOT ILIKE '%active%'`
+	want := `"status"::text NOT ILIKE 'active'`
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -71,10 +89,10 @@ func TestParseFilterMultipleTerms(t *testing.T) {
 	if !strings.Contains(got, " AND ") {
 		t.Errorf("multiple terms should be AND-ed, got %q", got)
 	}
-	if !strings.Contains(got, `"tags"::text ILIKE '%ae%'`) {
+	if !strings.Contains(got, `"tags"::text ILIKE 'ae'`) {
 		t.Errorf("first term missing, got %q", got)
 	}
-	if !strings.Contains(got, `"status"::text ILIKE '%active%'`) {
+	if !strings.Contains(got, `"status"::text ILIKE 'active'`) {
 		t.Errorf("second term missing, got %q", got)
 	}
 }
@@ -83,7 +101,7 @@ func TestParseFilterUnknownColumn(t *testing.T) {
 	// col=val always produces a column filter regardless of whether the column
 	// is in testCols; if it doesn't exist, PostgreSQL surfaces a clear error.
 	got := parseFilter("bogus=val", testCols)
-	want := `"bogus"::text ILIKE '%val%'`
+	want := `"bogus"::text ILIKE 'val'`
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -102,17 +120,36 @@ func TestParseFilterSQLInjection(t *testing.T) {
 
 func TestParseFilterQuotedValue(t *testing.T) {
 	got := parseFilter(`name="john doe"`, testCols)
-	want := `"name"::text ILIKE '%john doe%'`
+	want := `"name"::text ILIKE 'john doe'`
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
-func TestParseFilterLikeSpecialChars(t *testing.T) {
-	// % and _ in user input should be treated as literals, not LIKE wildcards
-	got := parseFilter("name=100%", testCols)
-	if strings.Contains(got, "'%100%%'") || !strings.Contains(got, `\%`) {
-		t.Errorf("percent should be escaped in LIKE pattern, got %q", got)
+func TestParseFilterWildcards(t *testing.T) {
+	// % and _ are passed through as ILIKE wildcards — the user controls them.
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// substring: both sides
+		{"tags=%eg%", `"tags"::text ILIKE '%eg%'`},
+		// prefix only
+		{"tags=eg%", `"tags"::text ILIKE 'eg%'`},
+		// suffix only
+		{"tags=%eg", `"tags"::text ILIKE '%eg'`},
+		// trailing digit+wildcard
+		{"name=100%", `"name"::text ILIKE '100%'`},
+		// underscore wildcard (single char)
+		{"name=jo_n", `"name"::text ILIKE 'jo_n'`},
+		// exact — no wildcards at all
+		{"tags=eg", `"tags"::text ILIKE 'eg'`},
+	}
+	for _, tt := range tests {
+		got := parseFilter(tt.input, testCols)
+		if got != tt.want {
+			t.Errorf("parseFilter(%q): got %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }
 
@@ -147,5 +184,66 @@ func TestParseFilterNoColumns(t *testing.T) {
 	got := parseFilter("hello", nil)
 	if got != "" {
 		t.Errorf("no columns: expected empty, got %q", got)
+	}
+}
+
+func TestParseFilterArrayColumn(t *testing.T) {
+	// text[] column (OID 1009): exact match uses = ANY.
+	got := parseFilter("tags=eg", testColsTyped)
+	want := `'eg' = ANY("tags")`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterArrayColumnSubstring(t *testing.T) {
+	// text[] column with wildcard falls back to EXISTS+unnest+ILIKE.
+	got := parseFilter("tags=%eg%", testColsTyped)
+	want := `EXISTS (SELECT 1 FROM unnest("tags") _t WHERE _t::text ILIKE '%eg%')`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterArrayColumnNegate(t *testing.T) {
+	got := parseFilter("tags!=eg", testColsTyped)
+	want := `NOT ('eg' = ANY("tags"))`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterJSONBColumn(t *testing.T) {
+	// jsonb column (OID 3802): exact match uses @> jsonb_build_array.
+	got := parseFilter("meta=foo", testColsTyped)
+	want := `"meta" @> jsonb_build_array('foo'::text)`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterJSONBColumnSubstring(t *testing.T) {
+	// jsonb column with wildcard uses EXISTS+jsonb_array_elements_text+ILIKE.
+	got := parseFilter("meta=%foo%", testColsTyped)
+	want := `EXISTS (SELECT 1 FROM jsonb_array_elements_text("meta") _t WHERE _t ILIKE '%foo%')`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterJSONBColumnNegate(t *testing.T) {
+	got := parseFilter("meta!=foo", testColsTyped)
+	want := `NOT ("meta" @> jsonb_build_array('foo'::text))`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseFilterScalarWithOID(t *testing.T) {
+	// Scalar column (OID 0 / unknown) still uses ::text ILIKE.
+	got := parseFilter("name=alice", testColsTyped)
+	want := `"name"::text ILIKE 'alice'`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

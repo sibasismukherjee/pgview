@@ -9,7 +9,7 @@ var (
 	colTooltip   = tcell.NewRGBColor(37, 37, 38)    // #252526  sidebar background (connPanel left)
 	colTooltipFg = tcell.NewRGBColor(150, 150, 150) // #969696  muted gray
 	colInfoBg    = tcell.NewRGBColor(14, 52, 96)    // #0e3460  deep navy (infoBar right)
-	colInfoFg    = tcell.NewRGBColor(200, 218, 240)  // #c8daf0  light blue-white (infoBar text)
+	colInfoFg    = tcell.NewRGBColor(200, 218, 240) // #c8daf0  light blue-white (infoBar text)
 	colFooter    = tcell.NewRGBColor(0, 122, 204)   // #007acc  VSCode statusbar blue
 	colFooterFg  = tcell.NewRGBColor(255, 255, 255) // white
 
