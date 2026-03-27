@@ -213,13 +213,14 @@ func fuzzyRender(item fuzzyItem) string {
 	var b strings.Builder
 	for i := 0; i < len(full); i++ {
 		ch := tview.Escape(string(full[i]))
-		if matched[i] {
+		switch {
+		case matched[i]:
 			b.WriteString("[#569cd6]" + ch + "[-]")
-		} else if i < schemaEnd {
+		case i < schemaEnd:
 			b.WriteString("[#6a6a6a]" + ch + "[-]")
-		} else if i == schemaEnd {
+		case i == schemaEnd:
 			b.WriteString("[#6a6a6a].[-]")
-		} else {
+		default:
 			b.WriteString(ch)
 		}
 	}

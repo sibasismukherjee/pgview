@@ -290,7 +290,7 @@ func buildDDL(
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("[#569cd6]CREATE TABLE[-] [#4ec9b0]\"%s\".\"%s\"[-] (\n", schema, table))
+	fmt.Fprintf(&b, "[#569cd6]CREATE TABLE[-] [#4ec9b0]\"%s\".\"%s\"[-] (\n", schema, table)
 	for i, line := range lines {
 		b.WriteString("  " + line)
 		if i < len(lines)-1 {
@@ -302,7 +302,7 @@ func buildDDL(
 
 	// Append non-primary-key indexes as standalone CREATE INDEX statements.
 	if idxsErr != nil {
-		b.WriteString(fmt.Sprintf("\n[#f44747]-- indexes error: %v[-]\n", idxsErr))
+		fmt.Fprintf(&b, "\n[#f44747]-- indexes error: %v[-]\n", idxsErr)
 	} else if idxs != nil {
 		for _, r := range idxs.Rows {
 			if len(r) < 5 || r[2] == "YES" { // skip primary key indexes
@@ -346,9 +346,9 @@ func (app *App) renderSchemaTabBar() {
 			b.WriteString("   ")
 		}
 		if i == app.schemaTabIdx {
-			b.WriteString(fmt.Sprintf("[#569cd6::b][%d] %s[::-][-]", i+1, name))
+			fmt.Fprintf(&b, "[#569cd6::b][%d] %s[::-][-]", i+1, name)
 		} else {
-			b.WriteString(fmt.Sprintf("[#6a6a6a][%d] %s[-]", i+1, name))
+			fmt.Fprintf(&b, "[#6a6a6a][%d] %s[-]", i+1, name)
 		}
 	}
 	app.schemaTabBar.SetText(b.String())

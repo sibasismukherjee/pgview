@@ -141,18 +141,6 @@ func (app *App) tableSchema() {
 	app.showSchema()
 }
 
-// tableFilter activates the filter cmdBar for the table list.
-func (app *App) tableFilter() {
-	app.showCmdBar("[::b]filter[::-]", "schema.table substring…", func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			app.dataFilter = app.cmdBar.GetText()
-		} else {
-			app.dataFilter = ""
-		}
-		app.hideCmdBar()
-		app.loadTableList()
-	})
-}
 
 // selectedTable returns schema, table for the currently highlighted row.
 func (app *App) selectedTable() (string, string) {

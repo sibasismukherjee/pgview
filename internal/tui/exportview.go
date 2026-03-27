@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+
 	"github.com/sibasismukherjee/pgview/internal/export"
 )
 
@@ -103,13 +104,16 @@ func (app *App) doExport(format, rawPath string) {
 		app.tv.ForceDraw()
 		return
 	}
-	defer f.Close()
 
 	switch format {
 	case "csv":
 		err = export.WriteCSV(f, result.Columns, result.Rows)
 	case "json":
 		err = export.WriteJSON(f, result.Columns, result.Rows)
+	}
+
+	if closeErr := f.Close(); closeErr != nil && err == nil {
+		err = closeErr
 	}
 
 	if err != nil {
