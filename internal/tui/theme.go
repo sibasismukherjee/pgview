@@ -78,12 +78,16 @@ const (
 		"  [#569cd6]<Esc>[-] table list  [#569cd6]<↵>[-] view data" +
 		"  [#6a6a6a]│[-]  [#569cd6]<e>[-] SQL editor  [#569cd6]<q>[-] quit"
 
-	// SQL editor — row 1: editor keys; row 2: history panel hint
+	// SQL editor — row 1: editor keys; row 2: panel hints
 	hotkeysSQL = "\n" +
 		"  [#569cd6]<Ctrl+E>[-] run  [#569cd6]<Tab>[-] complete  [#569cd6]<Ctrl+L>[-] clear  [#569cd6]<Esc>[-] cancel\n" +
-		"  [#569cd6]<Ctrl+R>[-] history panel"
+		"  [#569cd6]<Ctrl+R>[-] history  [#569cd6]<Ctrl+T>[-] templates"
 
 	// History panel (inside SQL editor)
 	hotkeysHistory = "\n" +
+		"  [#569cd6]<↵>[-] load  [#569cd6]<Esc>[-] back to editor  [#6a6a6a]│[-]  [#569cd6]<↑↓>[-] navigate"
+
+	// Templates panel (inside SQL editor)
+	hotkeysTemplates = "\n" +
 		"  [#569cd6]<↵>[-] load  [#569cd6]<Esc>[-] back to editor  [#6a6a6a]│[-]  [#569cd6]<↑↓>[-] navigate"
 )
