@@ -92,10 +92,10 @@ func (app *App) showRowView() {
 		for i, f := range fields {
 			var colCell, valCell *tview.TableCell
 			if f.modified {
-				colCell = tview.NewTableCell(" "+f.col).
+				colCell = tview.NewTableCell(" " + f.col).
 					SetTextColor(colOK).
 					SetExpansion(1)
-				valCell = tview.NewTableCell(" "+f.newVal+"  [#6a6a6a](edited)[-]").
+				valCell = tview.NewTableCell(" " + f.newVal + "  [#6a6a6a](edited)[-]").
 					SetTextColor(colOK).
 					SetExpansion(2)
 			} else {

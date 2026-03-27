@@ -78,7 +78,6 @@ func (app *App) showData() {
 	})
 }
 
-
 func (app *App) loadData() {
 	t := app.dataWidget
 	t.Clear()
