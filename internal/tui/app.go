@@ -75,9 +75,69 @@ func Run(client *db.Client) {
 	app.showTableList()
 
 	app.tv.SetRoot(app.layout, true).EnableMouse(true)
+	app.setupMouseCapture()
 	if err := app.tv.Run(); err != nil {
 		fmt.Printf("TUI error: %v\n", err)
 	}
+}
+
+// activeTable returns the table widget for the current front page, or nil
+// when the front page is not a plain table view (e.g. SQL editor, cell popup).
+func (app *App) activeTable() *tview.Table {
+	name, _ := app.pages.GetFrontPage()
+	switch name {
+	case pageTableList:
+		return app.tableListWidget
+	case pageData:
+		return app.dataWidget
+	case pageDescribe:
+		return app.descWidget
+	}
+	return nil
+}
+
+// setupMouseCapture installs the global mouse scroll handler.
+//
+// Vertical scroll (wheel up/down, two-finger swipe) moves the row selection;
+// the viewport tracks the selection so it works regardless of how many rows
+// are visible. Horizontal scroll (wheel left/right, two-finger horizontal
+// swipe) shifts the column offset so wide tables can be panned without using
+// arrow keys.
+func (app *App) setupMouseCapture() {
+	app.tv.SetMouseCapture(func(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
+		t := app.activeTable()
+		if t == nil {
+			return event, action
+		}
+		switch action {
+		case tview.MouseScrollUp:
+			row, col := t.GetSelection()
+			if row > 1 {
+				t.Select(row-1, col)
+			} else if row == 0 {
+				// nothing selected yet — initialise to first data row
+				t.Select(1, col)
+			}
+			return nil, action
+		case tview.MouseScrollDown:
+			row, col := t.GetSelection()
+			if row < t.GetRowCount()-1 {
+				t.Select(row+1, col)
+			}
+			return nil, action
+		case tview.MouseScrollLeft:
+			rOff, cOff := t.GetOffset()
+			if cOff > 0 {
+				t.SetOffset(rOff, cOff-1)
+			}
+			return nil, action
+		case tview.MouseScrollRight:
+			rOff, cOff := t.GetOffset()
+			t.SetOffset(rOff, cOff+1)
+			return nil, action
+		}
+		return event, action
+	})
 }
 
 // buildLayout assembles the root flex:
