@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -193,12 +194,41 @@ func (r *RestoreLogger) write(seq int, origSQL, captured, restore string) {
 // ident double-quotes an identifier, escaping embedded double-quotes.
 func ident(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
-// lit single-quotes a literal, writing NULL unquoted for the "NULL" sentinel.
+// reGoTimestamp matches Go's time.Time.String() output, e.g.
+// "2026-04-01 09:13:10 +0000 UTC" or "2026-04-01 09:13:10.123456 +0000 UTC".
+var reGoTimestamp = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)? [+-]\d{4} \S+$`)
+
+// lit single-quotes a literal with appropriate type casts where needed.
+// NULL sentinel → unquoted NULL.
+// JSON objects/arrays → '...'::jsonb.
+// Go time.Time format → reformatted as '...'::timestamptz.
+// Everything else → single-quoted string (PostgreSQL coerces from literals).
 func lit(s string) string {
 	if strings.EqualFold(s, "NULL") {
 		return "NULL"
 	}
-	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+	q := "'" + strings.ReplaceAll(s, "'", "''") + "'"
+
+	// JSONB: starts with { and has a key: pattern, or starts with [
+	if strings.HasPrefix(s, "[") ||
+		(strings.HasPrefix(s, "{") && strings.Contains(s, `":`)) {
+		return q + "::jsonb"
+	}
+
+	// Go time.Time string → reformat as PostgreSQL timestamptz literal.
+	if reGoTimestamp.MatchString(s) {
+		// Try sub-second format first, then whole-second.
+		for _, layout := range []string{
+			"2006-01-02 15:04:05.999999999 -0700 MST",
+			"2006-01-02 15:04:05 -0700 MST",
+		} {
+			if t, err := time.Parse(layout, s); err == nil {
+				return "'" + t.UTC().Format("2006-01-02 15:04:05.999999-07:00") + "'::timestamptz"
+			}
+		}
+	}
+
+	return q
 }
 
 // whereByPK builds a single-column WHERE predicate.

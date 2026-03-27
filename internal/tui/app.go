@@ -78,7 +78,9 @@ type App struct {
 // Run initialises and starts the TUI. Blocks until the user quits.
 // dmlConfirmThreshold controls the row-count confirmation gate (50 by default;
 // 0 disables confirmation entirely; -1 requires confirmation for all DML).
-func Run(client *db.Client, version string, dmlConfirmThreshold int) {
+// auditEnabled pre-enables audit mode as if the user pressed Ctrl+A at startup
+// (equivalent to -audit flag or PGVIEW_AUDIT=1 env var).
+func Run(client *db.Client, version string, dmlConfirmThreshold int, auditEnabled bool) {
 	app := &App{
 		tv:                  tview.NewApplication(),
 		pages:               tview.NewPages(),
@@ -96,6 +98,9 @@ func Run(client *db.Client, version string, dmlConfirmThreshold int) {
 
 	app.buildLayout()
 	app.setConnPanel()
+	if auditEnabled {
+		app.toggleAuditMode()
+	}
 	app.showTableList()
 
 	app.tv.SetRoot(app.layout, true).EnableMouse(true)

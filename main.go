@@ -24,6 +24,7 @@ func main() {
 	sslmode := flag.String("sslmode", "prefer", "SSL mode (disable|allow|prefer|require)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	dmlConfirm := flag.Int("dml-confirm", -999, "DML confirmation row threshold (0=disable, -1=always; overrides config.yml)")
+	auditFlag := flag.Bool("audit", false, "Start session with audit logging pre-enabled")
 	flag.Parse()
 
 	// Resolve threshold: flag overrides config, config overrides built-in default.
@@ -31,6 +32,9 @@ func main() {
 	if *dmlConfirm != -999 {
 		threshold = *dmlConfirm
 	}
+
+	// Audit mode: -audit flag or PGVIEW_AUDIT=1 env var.
+	auditEnabled := *auditFlag || os.Getenv("PGVIEW_AUDIT") == "1"
 
 	if *showVersion {
 		fmt.Printf("pgview %s\n", version)
@@ -76,5 +80,5 @@ func main() {
 	}
 	defer client.Close()
 
-	tui.Run(client, version, threshold)
+	tui.Run(client, version, threshold, auditEnabled)
 }

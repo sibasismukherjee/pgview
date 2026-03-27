@@ -230,16 +230,33 @@ func TestIdentAndLit(t *testing.T) {
 		in   string
 		want string
 	}{
+		// ident
 		{ident, "simple", `"simple"`},
 		{ident, `has"quote`, `"has""quote"`},
+		// lit — basic
 		{lit, "value", `'value'`},
 		{lit, "it's", `'it''s'`},
 		{lit, "NULL", "NULL"},
 		{lit, "null", "NULL"},
+		// lit — JSONB object
+		{lit, `{"key": "val"}`, `'{"key": "val"}'::jsonb`},
+		{lit, `{"a":1,"b":2}`, `'{"a":1,"b":2}'::jsonb`},
+		// lit — JSONB array
+		{lit, `[1, 2, 3]`, `'[1, 2, 3]'::jsonb`},
+		{lit, `["x","y"]`, `'["x","y"]'::jsonb`},
+		// lit — PostgreSQL array (no ::jsonb cast, plain string)
+		{lit, `{1,2,3}`, `'{1,2,3}'`},
+		{lit, `{alpha,beta}`, `'{alpha,beta}'`},
+		// lit — Go time.Time whole-second format
+		{lit, "2026-04-01 09:13:10 +0000 UTC", "'2026-04-01 09:13:10+00:00'::timestamptz"},
+		// lit — Go time.Time with sub-second
+		{lit, "2026-04-01 09:13:10.123456 +0000 UTC", "'2026-04-01 09:13:10.123456+00:00'::timestamptz"},
+		// lit — plain string that resembles a date but isn't a Go timestamp
+		{lit, "2026-04-01", `'2026-04-01'`},
 	}
 	for _, tc := range tests {
 		if got := tc.fn(tc.in); got != tc.want {
-			t.Errorf("fn(%q) = %q, want %q", tc.in, got, tc.want)
+			t.Errorf("lit/ident(%q)\n  got  %q\n  want %q", tc.in, got, tc.want)
 		}
 	}
 }

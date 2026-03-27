@@ -464,17 +464,20 @@ func (app *App) doRunSQL(query, kind string) {
 	app.setFooter("[#4ec9b0]Running…[-]")
 	app.tv.ForceDraw()
 
-	// ── Audit: pre-capture rows before UPDATE/DELETE ──────────────────────
+	// ── Audit: pre-capture rows before UPDATE/DELETE (inside a transaction) ─
+	// BEGIN before the SELECT so both the capture and the DML execute at the
+	// same snapshot, guaranteeing the captured values match what was changed.
 	var capturedRows []map[string]string
 	var capturedCols []string
 	var captureSkipped bool
-	if app.auditMode && app.restoreLogger != nil {
-		switch kind {
-		case "UPDATE", "DELETE":
-			capturedRows, capturedCols = app.preCaptureRows(query, kind)
-			if capturedRows == nil {
-				captureSkipped = true
-			}
+	inTxn := false
+	if app.auditMode && app.restoreLogger != nil && (kind == "UPDATE" || kind == "DELETE") {
+		if _, txErr := app.client.Query("BEGIN"); txErr == nil {
+			inTxn = true
+		}
+		capturedRows, capturedCols = app.preCaptureRows(query, kind)
+		if capturedRows == nil {
+			captureSkipped = true
 		}
 	}
 
@@ -497,6 +500,16 @@ func (app *App) doRunSQL(query, kind string) {
 	start := time.Now()
 	result, err := app.client.Query(execQuery)
 	dur := time.Since(start)
+
+	// Commit or roll back the pre-capture transaction.
+	if inTxn {
+		if err != nil {
+			_, _ = app.client.Query("ROLLBACK")
+		} else if _, commitErr := app.client.Query("COMMIT"); commitErr != nil {
+			err = commitErr
+			result = nil
+		}
+	}
 
 	// ── Audit log ─────────────────────────────────────────────────────────
 	if app.auditMode {
