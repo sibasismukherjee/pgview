@@ -36,20 +36,19 @@
 **Table list**
 ```
  pgview              │  <↵> view  <d> schema  <i> stats              │  Tables
- admin@mydb · local  │  </>  filter  <r> refresh  <e> SQL  <q> quit  │  public
+ admin@mydb · local  │  </> search  <r> refresh  <e> SQL  <q> quit  │  public
 ─────────────────────┴──────────────────────────────────────────────────────────────────
   schema    table                   type
   public    orders                  BASE TABLE
   public    products                BASE TABLE
-▶ public    routes                  BASE TABLE
-  public    services                BASE TABLE
-  reporting daily_summary           VIEW
+▶ public    customers               BASE TABLE
+  reporting monthly_totals          VIEW
 ```
 
 **Data view with filter**
 ```
- pgview              │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data  public.routes
- admin@mydb · local  │  <d> describe  <f> row view/edit   │  <r> refresh  <i> stats  <e> SQL  │  42 rows  ~1.2K est · PK: id
+ pgview              │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data  public.customers
+ admin@mydb · local  │  <d> schema  <f> row view/edit  <E> export  <i> stats  │  <r> refresh  <e> SQL  │  42 rows  ~1.2K est · PK: id
 ─────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────
   id    name              status    created_at           tags
 ▶ 1     Alice Johnson     active    2024-01-15 09:23:11  {platform,growth}
@@ -61,7 +60,7 @@
 
 **Row viewer / inline editor** (`f` on any row)
 ```
- Row Viewer  <e>/<↵> edit  <Ctrl+S> save  <Esc> close  · public.routes · row 1
+ Row Viewer  <e>/<↵> edit  <Ctrl+S> save  <Esc> close  · public.customers · row 1
 ─────────────────────┬──────────────────────────────────────────────────────────
  Column              │ Value
 ─────────────────────┼──────────────────────────────────────────────────────────
@@ -91,7 +90,7 @@
 
 **Schema browser** (`d` from table list or data view)
 ```
- pgview              │  <1> Columns  <2> Indexes  <3> Constraints  <4> DDL  │  Schema  public.routes
+ pgview              │  <1> Columns  <2> Indexes  <3> Constraints  <4> DDL  │  Schema  public.customers
  admin@mydb · local  │  <Tab> next tab  <↵> view data  <e> SQL  <Esc> back  │
 ─────────────────────┴───────────────────────────────────────────────────────────────────────────────
  [1] Columns   [2] Indexes   [3] Constraints   [4] DDL
@@ -108,17 +107,17 @@
 ```
  [1] Columns   [2] Indexes   [3] Constraints   [4] DDL
 ──────────────────────────────────────────────────────────
- CREATE TABLE "public"."routes" (
-   "id"          bigint  NOT NULL  DEFAULT nextval('routes_id_seq'),
+ CREATE TABLE "public"."customers" (
+   "id"          bigint  NOT NULL  DEFAULT nextval('customers_id_seq'),
    "name"        character varying(120)  NOT NULL,
    "status"      text  DEFAULT 'active',
    "created_at"  timestamp with time zone  NOT NULL  DEFAULT now(),
    "tags"        text[],
-   CONSTRAINT "routes_pkey"  PRIMARY KEY  (id),
-   CONSTRAINT "routes_status_check"  CHECK  (status = ANY (ARRAY['active','inactive']))
+   CONSTRAINT "customers_pkey"  PRIMARY KEY  (id),
+   CONSTRAINT "customers_status_check"  CHECK  (status = ANY (ARRAY['active','inactive']))
  );
 
- CREATE INDEX idx_routes_status ON public.routes USING btree (status);
+ CREATE INDEX idx_customers_status ON public.customers USING btree (status);
 ```
 
 **SQL editor with templates panel and inline completion**
@@ -128,7 +127,7 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   Templates                  │
   ── Query ─────────────     │  SELECT *
-   SELECT *                  │  FROM "public"."routes"
+   SELECT *                  │  FROM "public"."customers"
    SELECT cols               │  LIMIT 100▌
    SELECT WHERE              │
    COUNT                     │
@@ -142,7 +141,7 @@
    DROP COLUMN               │
   ─────────────────────────  │
   History                    │
-   SELECT * FROM routes…     │
+   SELECT * FROM customers…  │
                              │
   ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
   Ctrl+T  ›  templates panel (press Enter to load)
@@ -212,6 +211,7 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `↑` / `↓` | Move selection |
 | `Enter` | View data rows |
 | `d` | Open schema browser |
+| `i` | Show table stats (estimated row count, PK, index count) |
 | `/` | Fuzzy search across all schemas and tables |
 | `r` | Refresh list |
 | `e` | Open SQL editor |
