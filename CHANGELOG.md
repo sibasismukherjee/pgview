@@ -4,7 +4,7 @@ All notable changes to pgview are documented here.
 
 ---
 
-## [Unreleased]
+## [v0.4.1] — 2026-03-27
 
 ### Added
 
@@ -155,7 +155,7 @@ All notable changes to pgview are documented here.
 
 ---
 
-[Unreleased]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...HEAD
+[v0.4.1]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/sibasismukherjee/pgview/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/sibasismukherjee/pgview/compare/v0.2.1...v0.3.0
 [v0.2.1]: https://github.com/sibasismukherjee/pgview/compare/v0.2.0...v0.2.1
