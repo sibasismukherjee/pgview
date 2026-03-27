@@ -8,8 +8,12 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/sibasismukherjee/pgview/internal/audit"
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
+
+// colAuditBadge is the bright amber used for the ● AUDIT badge.
+var colAuditBadge = tcell.NewRGBColor(255, 195, 0)
 
 const (
 	pageTableList = "tables"
@@ -64,14 +68,21 @@ type App struct {
 	statsCachedTable string
 	statsFooter      string
 	dataRowCount     int // last rendered row count from loadData
+
+	// Audit / restore logging (issues #28 #29)
+	auditMode     bool
+	auditLogger   *audit.Logger
+	restoreLogger *audit.RestoreLogger
+	version       string
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.
-func Run(client *db.Client) {
+func Run(client *db.Client, version string) {
 	app := &App{
-		tv:     tview.NewApplication(),
-		pages:  tview.NewPages(),
-		client: client,
+		tv:      tview.NewApplication(),
+		pages:   tview.NewPages(),
+		client:  client,
+		version: version,
 	}
 	app.dbName = client.CurrentDB()
 	app.dbUser = client.CurrentUser()
@@ -89,6 +100,15 @@ func Run(client *db.Client) {
 	app.setupMouseCapture()
 	if err := app.tv.Run(); err != nil {
 		fmt.Printf("TUI error: %v\n", err)
+	}
+	// Close audit/restore loggers on exit.
+	if app.auditLogger != nil {
+		restorePath := ""
+		if app.restoreLogger != nil {
+			app.restoreLogger.Close()
+			restorePath = app.restoreLogger.Path()
+		}
+		app.auditLogger.Close(restorePath)
 	}
 }
 
@@ -226,13 +246,13 @@ func (app *App) setHeader(pageTitle, subtitle string) {
 }
 
 // setConnPanel populates the connection info panel (2 rows, left column).
-// Called once at startup; connection details don't change during a session.
+// Also shows the ● AUDIT badge when audit mode is active.
 func (app *App) setConnPanel() {
 	userDB := truncate(app.dbUser+"@"+app.dbName, 26)
 	host := truncate(app.dbHost, 22)
 	app.connPanel.SetText(fmt.Sprintf(
-		"\n [white::b]pgview[-]\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
-		userDB, host,
+		"\n [white::b]pgview[-]%s\n [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
+		app.auditBadge(), userDB, host,
 	))
 }
 
@@ -325,9 +345,59 @@ func (app *App) switchPage(name string) {
 }
 
 func (app *App) globalKeys(event *tcell.EventKey) *tcell.EventKey {
-	if event.Key() == tcell.KeyCtrlC {
+	switch event.Key() {
+	case tcell.KeyCtrlC:
 		app.tv.Stop()
+		return nil
+	case tcell.KeyCtrlA:
+		app.toggleAuditMode()
 		return nil
 	}
 	return event
+}
+
+// toggleAuditMode enables or disables audit+restore logging for the session.
+// On enable, both log files are created in ~/.pgview/sessions/.
+// On disable, the loggers are flushed and closed.
+func (app *App) toggleAuditMode() {
+	if app.auditMode {
+		// Disable.
+		app.auditMode = false
+		if app.restoreLogger != nil {
+			app.restoreLogger.Close()
+			app.restoreLogger = nil
+		}
+		if app.auditLogger != nil {
+			app.auditLogger.Close("")
+			app.auditLogger = nil
+		}
+		app.setConnPanel()
+		app.setFooter("[#6a6a6a]Audit logging disabled[-]")
+		return
+	}
+	// Enable.
+	al, err := audit.NewLogger(app.dbName, app.dbUser, app.dbHost, app.version)
+	if err != nil {
+		app.setFooter(fmt.Sprintf("[#f44747]Audit log error: %v[-]", err))
+		return
+	}
+	rl, err := audit.NewRestoreLogger(app.dbName, app.dbUser, app.dbHost, al.SessionID())
+	if err != nil {
+		al.Close("")
+		app.setFooter(fmt.Sprintf("[#f44747]Restore log error: %v[-]", err))
+		return
+	}
+	app.auditLogger = al
+	app.restoreLogger = rl
+	app.auditMode = true
+	app.setConnPanel()
+	app.setFooter(fmt.Sprintf("[#ffc300]● Audit ON  — %s[-]", al.Path()))
+}
+
+// auditBadge returns the tview-markup badge string when audit mode is active, else "".
+func (app *App) auditBadge() string {
+	if !app.auditMode {
+		return ""
+	}
+	return " [#ffc300::b]● AUDIT[-]"
 }

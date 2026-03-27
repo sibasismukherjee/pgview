@@ -6,6 +6,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
 const pageRowView = "rowview"
@@ -229,6 +231,28 @@ func (app *App) showRowView() {
 			if err != nil {
 				app.setFooter(fmt.Sprintf("[#f44747]Error: %v[-]", err))
 				return nil
+			}
+
+			// ── Audit: log original values for restore ────────────────────
+			if app.auditMode && app.auditLogger != nil {
+				rparts := strings.SplitN(app.curTable, ".", 2)
+				if len(rparts) == 2 {
+					fqTable := pgIdent(rparts[0]) + "." + pgIdent(rparts[1])
+					var origFields []audit.OrigField
+					for _, f := range toSave {
+						origFields = append(origFields, audit.OrigField{Col: f.col, Val: f.origVal})
+					}
+					if app.restoreLogger != nil {
+						app.restoreLogger.LogRowEditorSave(fqTable, pkCol, pkVal, sql, origFields)
+					}
+					app.auditLogger.Log(audit.Record{
+						Type:   audit.StmtUpdate,
+						Schema: rparts[0],
+						Table:  rparts[1],
+						SQL:    sql,
+						Rows:   1,
+					})
+				}
 			}
 
 			// Mark saved fields as unmodified.

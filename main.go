@@ -69,5 +69,5 @@ func main() {
 	}
 	defer client.Close()
 
-	tui.Run(client)
+	tui.Run(client, version)
 }
