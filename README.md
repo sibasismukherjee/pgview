@@ -15,8 +15,10 @@
 - **k9s-style TUI** — navigable table list, data view, and describe view
 - **Connect anywhere** — host:port, pgBouncer, RDS Proxy, or a full `postgres://` DSN
 - **Paginated data view** — scroll through large tables with `n`/`p`
+- **Mouse and touchpad navigation** — vertical and horizontal scroll gestures work everywhere; two-finger swipe pans wide result sets sideways
 - **Smart filter DSL** — narrow data rows with `/`: `col=val`, `col=%sub%`, `col>val`, or free text; array and JSONB columns match element-wise
 - **SQL editor** — open a full-screen SQL editor with `e`, run with `Ctrl+E`
+- **SQL templates panel** — `Ctrl+T` opens a side panel with pre-filled Query / Write / DDL templates built from the current table's real column names; select one to load it into the editor
 - **Schema-aware Tab completion** — clause-sensitive suggestions: type-matched operators after column names (LIKE for text, >= for timestamps, IS TRUE for booleans, = ANY( for arrays), table names after FROM/JOIN, column names in SELECT/WHERE
 - **Full cell viewer** — press `f` in data view to inspect long JSON blobs or wide values in a popup
 - **Query history** — `Ctrl+R` in the SQL editor opens a navigable history panel
@@ -53,15 +55,31 @@
  WHERE "status"::text ILIKE 'active'
 ```
 
-**SQL editor with inline completion**
+**SQL editor with templates panel and inline completion**
 ```
  pgview              │  <Ctrl+E> run  <Tab> complete  <Ctrl+L> clear  <Esc> cancel  │  SQL Editor
- admin@mydb · local  │  <Ctrl+R> history panel                                      │
-
-  SELECT * FROM routes WHERE created_at >=▌
-
+ admin@mydb · local  │  <Ctrl+R> history  <Ctrl+T> templates                        │
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  Templates                  │
+  ── Query ─────────────     │  SELECT *
+   SELECT *                  │  FROM "public"."routes"
+   SELECT cols               │  LIMIT 100▌
+   SELECT WHERE              │
+   COUNT                     │
+  ── Write ─────────────     │
+   INSERT                    │
+   UPDATE                    │
+   DELETE                    │
+   UPSERT                    │
+  ── DDL ───────────────     │
+   ADD COLUMN                │
+   DROP COLUMN               │
+  ─────────────────────────  │
+  History                    │
+   SELECT * FROM routes…     │
+                             │
   ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
-  Tab  ›  >=    (timestamp — press Tab to accept)
+  Ctrl+T  ›  templates panel (press Enter to load)
 ```
 
 ---
@@ -137,7 +155,8 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Move selection |
+| `↑` / `↓` or scroll up/down | Move selection |
+| Scroll left / right | Pan columns horizontally |
 | `n` / `p` | Next / previous page (200 rows per page) |
 | `g` / `G` | Jump to top / bottom |
 | `/` | Open filter prompt |
@@ -167,9 +186,22 @@ The `/` filter accepts a mini-language; terms are AND-ed:
 |-----|--------|
 | `Ctrl+E` | Execute query |
 | `Tab` | Context-aware completion (operator → table → column → keyword) |
+| `Ctrl+T` | Open templates panel (Query / Write / DDL pre-filled for current table) |
 | `Ctrl+R` | Open query history panel |
 | `Ctrl+L` | Clear editor |
 | `Esc` | Cancel and go back |
+
+#### Templates panel
+
+`Ctrl+T` opens the left-side templates panel. Templates are pre-filled with the current table's real column and primary-key names.
+
+| Category | Templates |
+|----------|-----------|
+| Query | SELECT \*, SELECT cols, SELECT WHERE, COUNT |
+| Write | INSERT, UPDATE, DELETE, UPSERT (ON CONFLICT) |
+| DDL | ADD COLUMN, DROP COLUMN, CREATE INDEX, ANALYZE, TRUNCATE |
+
+Use `↑` / `↓` to navigate, `Enter` to load into the editor, `Esc` to return to the editor.
 
 ### Describe view
 
