@@ -4,6 +4,28 @@ All notable changes to pgview are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**SQL templates panel**
+- `Ctrl+T` in the SQL editor opens a templates panel on the left side (top 2/3 of the left column, above history)
+- Templates are pre-filled with the current table's real column names, quoted identifiers, and primary-key column
+- Categories: **Query** (SELECT \*, SELECT cols, SELECT WHERE, COUNT), **Write** (INSERT, UPDATE, DELETE, UPSERT with ON CONFLICT), **DDL** (ADD COLUMN, DROP COLUMN, CREATE INDEX, ANALYZE, TRUNCATE)
+- Category headers are non-selectable; use `↑`/`↓` to navigate, `Enter` to load into editor, `Esc` to return focus to editor
+- When opened from the table list (no `curTable`), generic `schema`/`table`/`col1` placeholders are used
+
+**Mouse and touchpad scroll**
+- Vertical scroll (mouse wheel or two-finger swipe) moves the row selection in all table views (table list, data view, describe view); works with any number of rows including when all rows fit on screen
+- Horizontal scroll (two-finger horizontal swipe on touchpad, `WheelLeft`/`WheelRight`) pans the column viewport in wide result sets — no arrow keys required
+- SQL editor's TextArea handles its own scroll natively and is unaffected
+
+### Fixed
+
+- Hotkey tooltip bar now correctly restores the previous view's hotkeys when exiting the SQL editor via `Esc` — previously the tooltip stayed on the SQL editor hotkeys after returning to the table list or data view
+
+---
+
 ## [v0.3.0] — 2026-03-27
 
 ### Added
