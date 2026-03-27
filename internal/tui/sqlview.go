@@ -450,6 +450,7 @@ func (app *App) runSQL(query string) {
 		}
 	}
 	app.lastSQL = query
+	app.exportSQL = query
 	app.setFooter("[#4ec9b0]Running…[-]")
 	app.tv.ForceDraw()
 

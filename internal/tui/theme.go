@@ -63,25 +63,30 @@ const (
 const (
 	// Tables view
 	hotkeysTableList = "\n" +
-		"  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] describe  [#569cd6]<i>[-] stats" +
-		"  [#6a6a6a]│[-]  [#569cd6]</>[-] filter  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<q>[-] quit"
+		"  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] schema  [#569cd6]<i>[-] stats" +
+		"  [#6a6a6a]│[-]  [#569cd6]</>[-] search  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<q>[-] quit"
 
 	// Data view — row 1: navigation/pagination/filter; row 2: view/actions
 	hotkeysData = "\n" +
 		"  [#569cd6]<Esc>[-] back  [#569cd6]<g>[-] top  [#569cd6]<G>[-] bottom" +
 		"  [#6a6a6a]│[-]  [#569cd6]<n>/<p>[-] page  [#6a6a6a]│[-]  [#569cd6]</>[-] filter\n" +
-		"  [#569cd6]<d>[-] describe  [#569cd6]<f>[-] row view/edit  [#569cd6]<i>[-] stats" +
+		"  [#569cd6]<d>[-] schema  [#569cd6]<f>[-] row view/edit  [#569cd6]<E>[-] export  [#569cd6]<i>[-] stats" +
 		"  [#6a6a6a]│[-]  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL"
+
+	// Fuzzy search overlay
+	hotkeysFuzzy = "\n" +
+		"  [#569cd6]<↵>[-] open  [#569cd6]<Esc>[-] cancel  [#6a6a6a]│[-]  [#569cd6]<↑↓>[-] navigate  [#6a6a6a]│[-]  type to filter all schemas"
 
 	// Row viewer / editor
 	hotkeysRowView = "\n" +
 		"  [#569cd6]<e>/<↵>[-] edit field  [#569cd6]<Ctrl+S>[-] save  [#569cd6]<Esc>[-] close" +
 		"  [#6a6a6a]│[-]  [#569cd6]<↑↓>[-] navigate"
 
-	// Describe view
-	hotkeysDescribe = "\n" +
-		"  [#569cd6]<Esc>[-] table list  [#569cd6]<↵>[-] view data" +
-		"  [#6a6a6a]│[-]  [#569cd6]<e>[-] SQL editor  [#569cd6]<q>[-] quit"
+	// Schema browser (4-tab panel)
+	hotkeysSchema = "\n" +
+		"  [#569cd6]<1>[-] Columns  [#569cd6]<2>[-] Indexes  [#569cd6]<3>[-] Constraints  [#569cd6]<4>[-] DDL" +
+		"  [#6a6a6a]│[-]  [#569cd6]<Tab>[-] next tab\n" +
+		"  [#569cd6]<↵>[-] view data  [#569cd6]<e>[-] SQL  [#569cd6]<Esc>[-] back  [#569cd6]<q>[-] quit"
 
 	// SQL editor — row 1: editor keys; row 2: panel hints
 	hotkeysSQL = "\n" +

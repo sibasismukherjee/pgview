@@ -12,7 +12,7 @@
 
 ## Features
 
-- **k9s-style TUI** — navigable table list, data view, and describe view
+- **k9s-style TUI** — navigable table list, data view, and schema browser
 - **Connect anywhere** — host:port, pgBouncer, RDS Proxy, or a full `postgres://` DSN
 - **Paginated data view** — scroll through large tables with `n`/`p`
 - **Mouse and touchpad navigation** — vertical and horizontal scroll gestures work everywhere; two-finger swipe pans wide result sets sideways
@@ -22,16 +22,20 @@
 - **Schema-aware Tab completion** — clause-sensitive suggestions: type-matched operators after column names (LIKE for text, >= for timestamps, IS TRUE for booleans, = ANY( for arrays), table names after FROM/JOIN, column names in SELECT/WHERE
 - **Row viewer and inline editor** — press `f` in data view to open a full-screen two-column table (Column | Value) for the selected row; press `e`/`Enter` to edit any field in-place, `Ctrl+S` to commit as an `UPDATE`, `Esc` to close
 - **Query history** — `Ctrl+R` in the SQL editor opens a navigable history panel
-- **Describe columns** — schema, type, nullability, defaults at a glance
+- **Schema browser** — press `d` to open a 4-tab panel: Columns, Indexes, Constraints, and a reconstructed DDL view; navigate tabs with `Tab` or `1`–`4`
+- **Fuzzy table search** — press `/` to open a full-screen fuzzy finder across all schemas and tables; matched characters are highlighted; arrow keys navigate, `Enter` opens the table
+- **Export to CSV / JSON** — press `E` (Shift+E) in the data view to export the full result set (without page limit) to a file; format and path prompted interactively
 - **Secure password prompt** — no echo, uses terminal raw mode
 
 ---
 
 ## Demo
 
+![pgview demo](assets/demo.gif)
+
 **Table list**
 ```
- pgview              │  <↵> view  <d> describe  <i> stats            │  Tables
+ pgview              │  <↵> view  <d> schema  <i> stats              │  Tables
  admin@mydb · local  │  </>  filter  <r> refresh  <e> SQL  <q> quit  │  public
 ─────────────────────┴──────────────────────────────────────────────────────────────────
   schema    table                   type
@@ -71,6 +75,50 @@
  1 unsaved change(s) — Ctrl+S to save, Esc to discard
 
  edit status  ▏ inactive▌
+```
+
+**Fuzzy table search** (`/` from the table list)
+```
+ pgview              │  <↵> open  <Esc> cancel  │  <↑↓> navigate  │  type to filter all schemas  │  Search  all schemas — type to filter
+ admin@mydb · local  │                                                                             │
+──────────────────────────────────────────────────────────────────────────────────────────────────────
+ / ord
+──────────────────────────────────────────────────────────────────────────────────────────────────────
+   public.orders
+   public.order_items
+   reporting.daily_order_summary
+```
+
+**Schema browser** (`d` from table list or data view)
+```
+ pgview              │  <1> Columns  <2> Indexes  <3> Constraints  <4> DDL  │  Schema  public.routes
+ admin@mydb · local  │  <Tab> next tab  <↵> view data  <e> SQL  <Esc> back  │
+─────────────────────┴───────────────────────────────────────────────────────────────────────────────
+ [1] Columns   [2] Indexes   [3] Constraints   [4] DDL
+──────────────────────────────────────────────────────────
+  Column       Type                    Nullable   Default
+  id           bigint                  NOT NULL
+  name         character varying(120)  NOT NULL
+▶ status       text                    NULL       'active'
+  created_at   timestamp with tz       NOT NULL   now()
+  tags         text[]                  NULL
+```
+
+**Schema browser — DDL tab** (`4`)
+```
+ [1] Columns   [2] Indexes   [3] Constraints   [4] DDL
+──────────────────────────────────────────────────────────
+ CREATE TABLE "public"."routes" (
+   "id"          bigint  NOT NULL  DEFAULT nextval('routes_id_seq'),
+   "name"        character varying(120)  NOT NULL,
+   "status"      text  DEFAULT 'active',
+   "created_at"  timestamp with time zone  NOT NULL  DEFAULT now(),
+   "tags"        text[],
+   CONSTRAINT "routes_pkey"  PRIMARY KEY  (id),
+   CONSTRAINT "routes_status_check"  CHECK  (status = ANY (ARRAY['active','inactive']))
+ );
+
+ CREATE INDEX idx_routes_status ON public.routes USING btree (status);
 ```
 
 **SQL editor with templates panel and inline completion**
@@ -163,8 +211,8 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 |-----|--------|
 | `↑` / `↓` | Move selection |
 | `Enter` | View data rows |
-| `d` | Describe columns |
-| `/` | Filter by name |
+| `d` | Open schema browser |
+| `/` | Fuzzy search across all schemas and tables |
 | `r` | Refresh list |
 | `e` | Open SQL editor |
 | `q` | Quit |
@@ -179,7 +227,8 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `g` / `G` | Jump to top / bottom |
 | `/` | Open filter prompt |
 | `f` | Row viewer / editor — see all columns of the selected row, edit any field |
-| `d` | Describe columns of this table |
+| `d` | Open schema browser for this table |
+| `E` | Export full result set to CSV or JSON (prompts for format and path) |
 | `i` | Refresh table stats (row count, PK, indexes) |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
@@ -234,11 +283,43 @@ The `/` filter accepts a mini-language; terms are AND-ed:
 
 Use `↑` / `↓` to navigate, `Enter` to load into the editor, `Esc` to return to the editor.
 
-### Describe view
+### Fuzzy table search
+
+Opened with `/` from the table list. Searches across all schemas simultaneously.
 
 | Key | Action |
 |-----|--------|
-| `Enter` | View data rows for this table |
+| Type any characters | Filter tables by fuzzy match (subsequence) |
+| `↑` / `↓` | Navigate results |
+| `Enter` | Open selected table's data view |
+| `Esc` | Close and return to table list |
+
+Matched characters are highlighted in blue. Schema names shown in muted gray, table names in white. Results ranked by match quality (consecutive character runs and word-boundary hits score higher).
+
+### Export to CSV / JSON
+
+Opened with `E` (Shift+E) from the data view. Works for both table browse and SQL query results.
+
+| Step | Prompt | Notes |
+|------|--------|-------|
+| 1 | `export format:` | Type `csv` or `json`, press `Enter` |
+| 2 | `export to:` | Pre-filled with `~/export_<table>_<timestamp>.<ext>`; edit path, press `Enter` |
+
+The export re-runs the current query **without** `LIMIT` or `OFFSET` so all rows are written, not just the current page. NULL values are written as empty string in CSV and as `null` in JSON.
+
+### Schema browser
+
+Opened with `d` from the table list or data view. Shows four tabs for the selected table.
+
+| Key | Action |
+|-----|--------|
+| `1` | Columns tab — name, type, nullability, default |
+| `2` | Indexes tab — name, unique/primary flags, method, definition |
+| `3` | Constraints tab — name, type (PK / FK / UNIQUE / CHECK), definition |
+| `4` | DDL tab — reconstructed `CREATE TABLE` with constraints and indexes |
+| `Tab` / `Shift+Tab` | Cycle forward / backward through tabs |
+| `Enter` | View data rows for this table (not available on DDL tab) |
+| `e` | Open SQL editor |
 | `Esc` | Back to table list |
 | `q` | Quit |
 

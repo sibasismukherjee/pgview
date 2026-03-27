@@ -50,7 +50,7 @@ func (app *App) showData() {
 			app.loadData()
 			return nil
 		case event.Rune() == 'd':
-			app.showDescribe()
+			app.showSchema()
 			return nil
 		case event.Rune() == 'r':
 			app.loadData()
@@ -68,6 +68,9 @@ func (app *App) showData() {
 			return nil
 		case event.Rune() == 'f':
 			app.showRowView()
+			return nil
+		case event.Rune() == 'E':
+			app.showExportPrompt()
 			return nil
 		case event.Rune() == 'i':
 			app.statsCachedTable = "" // force refresh
@@ -110,6 +113,17 @@ func (app *App) loadData() {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("query error: %v", err)))
 		app.setHeader("Data", app.curTable)
 		return
+	}
+
+	// exportSQL is only updated on a successful query so that a failed filter
+	// does not poison the export with a broken WHERE clause.
+	if whereClause != "" {
+		app.exportSQL = fmt.Sprintf(
+			`SELECT * FROM %s.%s WHERE %s`,
+			pgIdent(schema), pgIdent(table), whereClause,
+		)
+	} else {
+		app.exportSQL = fmt.Sprintf(`SELECT * FROM %s.%s`, pgIdent(schema), pgIdent(table))
 	}
 
 	// Cache column names and OIDs for filter parsing on subsequent loads.

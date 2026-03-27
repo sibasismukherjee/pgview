@@ -14,7 +14,8 @@ import (
 const (
 	pageTableList = "tables"
 	pageData      = "data"
-	pageDescribe  = "describe"
+	pageDescribe  = "describe" // kept for backward-compat with tests
+	pageSchema    = "schema"
 )
 
 // App holds the entire TUI state.
@@ -44,10 +45,20 @@ type App struct {
 	// View widgets (created once, reused)
 	tableListWidget *tview.Table
 	dataWidget      *tview.Table
-	descWidget      *tview.Table
+
+	// Schema browser (4-tab panel, opened with 'd')
+	schemaFlex   *tview.Flex
+	schemaTabBar *tview.TextView
+	schemaInner  *tview.Pages
+	schemaColsT  *tview.Table
+	schemaIdxsT  *tview.Table
+	schemaConsT  *tview.Table
+	schemaDDLV   *tview.TextView
+	schemaTabIdx int
 
 	sqlHistory   []string     // most-recent-first; capped at 50
 	tableColumns []columnInfo // columns of curTable, populated on first load
+	exportSQL    string       // unlimited query for the current data view (no LIMIT/OFFSET)
 
 	// Table stats cache — populated once per curTable, used in footer.
 	statsCachedTable string
@@ -90,8 +101,8 @@ func (app *App) activeTable() *tview.Table {
 		return app.tableListWidget
 	case pageData:
 		return app.dataWidget
-	case pageDescribe:
-		return app.descWidget
+	case pageSchema:
+		return app.schemaActiveTable()
 	}
 	return nil
 }

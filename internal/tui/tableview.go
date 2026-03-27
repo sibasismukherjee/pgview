@@ -38,10 +38,10 @@ func (app *App) showTableList() {
 			app.tableEnter()
 			return nil
 		case event.Rune() == 'd':
-			app.tableDescribe()
+			app.tableSchema()
 			return nil
 		case event.Rune() == '/':
-			app.tableFilter()
+			app.showFuzzy()
 			return nil
 		case event.Rune() == 'r':
 			app.loadTableList()
@@ -131,27 +131,14 @@ func (app *App) tableEnter() {
 	app.showData()
 }
 
-// tableDescribe navigates to describe view for the selected table.
-func (app *App) tableDescribe() {
+// tableSchema navigates to the schema browser for the selected table.
+func (app *App) tableSchema() {
 	schema, table := app.selectedTable()
 	if table == "" {
 		return
 	}
 	app.curTable = schema + "." + table
-	app.showDescribe()
-}
-
-// tableFilter activates the filter cmdBar for the table list.
-func (app *App) tableFilter() {
-	app.showCmdBar("[::b]filter[::-]", "schema.table substring…", func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			app.dataFilter = app.cmdBar.GetText()
-		} else {
-			app.dataFilter = ""
-		}
-		app.hideCmdBar()
-		app.loadTableList()
-	})
+	app.showSchema()
 }
 
 // selectedTable returns schema, table for the currently highlighted row.
