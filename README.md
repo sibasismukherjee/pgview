@@ -1,8 +1,12 @@
-# pgview
+<p align="center">
+  <img src="assets/logo.svg" width="96" alt="pgview logo"/>
+</p>
 
-A lightweight, keyboard-driven PostgreSQL browser for the terminal — built in Go using the same TUI framework as [k9s](https://k9scli.io/).
+<h1 align="center">pgview</h1>
 
-Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy, SSH tunnel, …) and navigate tables, inspect columns, paginate rows, and run SQL queries — all without leaving your terminal.
+<p align="center">A lightweight, keyboard-driven PostgreSQL browser for the terminal — built in Go using the same TUI framework as <a href="https://k9scli.io/">k9s</a>.</p>
+
+<p align="center">Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy, SSH tunnel, …) and navigate tables, inspect columns, paginate rows, and run SQL queries — all without leaving your terminal.</p>
 
 ---
 
@@ -23,17 +27,41 @@ Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy
 
 ## Demo
 
+**Table list**
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ pgview  Tables                                          myuser@mydb           │
-│  ↵ view   d describe   / filter   r refresh   e SQL   q quit                 │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Schema    Table              Type                                            │
-│  public    orders             BASE TABLE                                      │
-│  public    products           BASE TABLE                                      │
-│▶ public    users              BASE TABLE                                      │
-│  reporting daily_summary      VIEW                                            │
-└──────────────────────────────────────────────────────────────────────────────┘
+ pgview              │  <↵> view  <d> describe  <i> stats            │  Tables
+ admin@mydb · local  │  </>  filter  <r> refresh  <e> SQL  <q> quit  │  public
+─────────────────────┴──────────────────────────────────────────────────────────────────
+  schema    table                   type
+  public    orders                  BASE TABLE
+  public    products                BASE TABLE
+▶ public    routes                  BASE TABLE
+  public    services                BASE TABLE
+  reporting daily_summary           VIEW
+```
+
+**Data view with filter**
+```
+ pgview              │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data  public.routes
+ admin@mydb · local  │  <d> describe  <f> full cell       │  <r> refresh  <i> stats  <e> SQL  │  42 rows  ~1.2K est · PK: id
+─────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────
+  id    name              status    created_at           tags
+▶ 1     Alice Johnson     active    2024-01-15 09:23:11  {platform,growth}
+  3     Carol White       active    2024-03-19 11:02:44  {platform,api}
+  7     Eve Martinez      active    2024-05-01 16:14:09  {growth}
+
+ WHERE "status"::text ILIKE 'active'
+```
+
+**SQL editor with inline completion**
+```
+ pgview              │  <Ctrl+E> run  <Tab> complete  <Ctrl+L> clear  <Esc> cancel  │  SQL Editor
+ admin@mydb · local  │  <Ctrl+R> history panel                                      │
+
+  SELECT * FROM routes WHERE created_at >=▌
+
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+  Tab  ›  >=    (timestamp — press Tab to accept)
 ```
 
 ---
