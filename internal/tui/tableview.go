@@ -141,7 +141,6 @@ func (app *App) tableSchema() {
 	app.showSchema()
 }
 
-
 // selectedTable returns schema, table for the currently highlighted row.
 func (app *App) selectedTable() (string, string) {
 	if app.tableListWidget == nil {
