@@ -114,7 +114,7 @@ func TestCurrentContentPage_WithCurTable(t *testing.T) {
 // ── page name constants ───────────────────────────────────────────────────────
 
 func TestPageNameConstants_Distinct(t *testing.T) {
-	pages := []string{pageTableList, pageData, pageDescribe, pageSQLEditor}
+	pages := []string{pageTableList, pageData, pageDescribe, pageSchema, pageFuzzy, pageSQLEditor}
 	seen := map[string]bool{}
 	for _, p := range pages {
 		if seen[p] {

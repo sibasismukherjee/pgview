@@ -50,7 +50,7 @@ func (app *App) showData() {
 			app.loadData()
 			return nil
 		case event.Rune() == 'd':
-			app.showDescribe()
+			app.showSchema()
 			return nil
 		case event.Rune() == 'r':
 			app.loadData()
@@ -68,6 +68,9 @@ func (app *App) showData() {
 			return nil
 		case event.Rune() == 'f':
 			app.showRowView()
+			return nil
+		case event.Rune() == 'E':
+			app.showExportPrompt()
 			return nil
 		case event.Rune() == 'i':
 			app.statsCachedTable = "" // force refresh
@@ -97,11 +100,16 @@ func (app *App) loadData() {
 			`SELECT * FROM %s.%s WHERE %s LIMIT %d OFFSET %d`,
 			pgIdent(schema), pgIdent(table), whereClause, dataPageSize, app.dataOffset,
 		)
+		app.exportSQL = fmt.Sprintf(
+			`SELECT * FROM %s.%s WHERE %s`,
+			pgIdent(schema), pgIdent(table), whereClause,
+		)
 	} else {
 		sql = fmt.Sprintf(
 			`SELECT * FROM %s.%s LIMIT %d OFFSET %d`,
 			pgIdent(schema), pgIdent(table), dataPageSize, app.dataOffset,
 		)
+		app.exportSQL = fmt.Sprintf(`SELECT * FROM %s.%s`, pgIdent(schema), pgIdent(table))
 	}
 	app.lastSQL = sql
 

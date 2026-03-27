@@ -4,6 +4,39 @@ All notable changes to pgview are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**Fuzzy table search**
+- Press `/` in the table list to open a full-screen fuzzy finder across all schemas and tables
+- Results update immediately as you type; matched characters are highlighted in blue; schema names shown muted, table names in white
+- Fuzzy scoring rewards consecutive character runs and word-boundary matches so `ord` ranks `orders` above `order_audit_log` even if both match
+- `↑`/`↓` navigate the result list; `Enter` opens the selected table's data view; `Esc` returns to the table list with no change
+- Replaces the previous simple substring filter on `/` in the table list
+
+**Export to CSV / JSON**
+- Press `E` (Shift+E) in the data view to start an interactive export flow (works for both table browse and SQL result views)
+- Two-step prompt: first choose format (`csv` or `json`), then confirm or edit the file path (pre-filled with `~/export_<table>_<timestamp>.<ext>`)
+- Export re-runs the current query without `LIMIT`/`OFFSET` — all rows are written, not just the visible page
+- CSV: header row + data rows; NULL → empty string
+- JSON: array of objects; NULL → `null`
+- Confirmation shown in the footer on success; error shown if the file is not writable
+- New package `internal/export/` with `WriteCSV` and `WriteJSON` functions
+
+**Schema browser (4-tab panel)**
+- Press `d` from the table list or data view to open the schema browser — replaces the single-column describe view with a full 4-tab panel
+- **Columns tab** (`1`) — column name, type, nullability, and default; same data as the old describe view
+- **Indexes tab** (`2`) — index name, unique flag, primary flag, access method (btree/gin/…), and the full `pg_get_indexdef` definition
+- **Constraints tab** (`3`) — constraint name, type (PRIMARY KEY / FOREIGN KEY / UNIQUE / CHECK) with colour coding, and the `pg_get_constraintdef` definition
+- **DDL tab** (`4`) — a reconstructed `CREATE TABLE` statement with column definitions (accurate types via `pg_catalog.format_type`), inline constraints, and standalone `CREATE INDEX` statements for non-primary indexes
+- Navigate tabs with `1`–`4` number keys or `Tab` / `Shift+Tab` to cycle
+- `Enter` on any row-selection tab navigates to the data view; `Esc` returns to the table list; `e` opens the SQL editor
+- Mouse scroll works on Columns, Indexes, and Constraints tabs (row-selection tables); DDL tab scrolls as plain text
+- Three new DB queries added to `internal/db/schema.go`: `SchemaIndexes`, `SchemaConstraints`, `SchemaDDLCols`
+
+---
+
 ## [v0.4.0] — 2026-03-27
 
 ### Added
@@ -122,6 +155,7 @@ All notable changes to pgview are documented here.
 
 ---
 
+[Unreleased]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...HEAD
 [v0.4.0]: https://github.com/sibasismukherjee/pgview/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/sibasismukherjee/pgview/compare/v0.2.1...v0.3.0
 [v0.2.1]: https://github.com/sibasismukherjee/pgview/compare/v0.2.0...v0.2.1
