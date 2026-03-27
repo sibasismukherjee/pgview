@@ -93,12 +93,14 @@ func (app *App) doExport(format, rawPath string) {
 	result, err := app.client.Query(app.exportSQL)
 	if err != nil {
 		app.setFooter(fmt.Sprintf("[#f44747]query error: %v[-]", err))
+		app.tv.ForceDraw()
 		return
 	}
 
 	f, err := os.Create(rawPath)
 	if err != nil {
 		app.setFooter(fmt.Sprintf("[#f44747]cannot write file: %v[-]", err))
+		app.tv.ForceDraw()
 		return
 	}
 	defer f.Close()
@@ -112,6 +114,7 @@ func (app *App) doExport(format, rawPath string) {
 
 	if err != nil {
 		app.setFooter(fmt.Sprintf("[#f44747]write error: %v[-]", err))
+		app.tv.ForceDraw()
 		return
 	}
 
