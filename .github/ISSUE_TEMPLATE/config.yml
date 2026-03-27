@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/sibasismukherjee/pgview/blob/main/README.md
+    about: Check the README for usage, keyboard reference, and filter DSL syntax.
