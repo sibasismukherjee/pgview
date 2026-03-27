@@ -1,0 +1,158 @@
+name: Sync Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'main.go'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual run'
+        required: false
+        default: 'Manual sync'
+
+jobs:
+  sync-wiki:
+    name: Sync wiki
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: ver
+        run: |
+          VERSION=$(grep -oP 'var version = "\K[^"]+' main.go)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Clone or init wiki repo
+        run: |
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          WIKI_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
+
+          if git clone "$WIKI_URL" wiki 2>/dev/null; then
+            echo "Cloned existing wiki"
+          else
+            echo "Wiki not initialised yet — bootstrapping"
+            mkdir wiki && cd wiki && git init
+            git remote add origin "$WIKI_URL"
+          fi
+
+      - name: Write wiki pages
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          cd wiki
+
+          # ── Home.md — mirrors key README sections ──────────────────────────
+          cat > Home.md << 'HOMEOF'
+          # pgview
+
+          > A lightweight, keyboard-driven PostgreSQL browser for the terminal — built in Go using the same TUI framework as [k9s](https://k9scli.io/).
+
+          Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy, SSH tunnel, …) and navigate tables, inspect columns, paginate rows, and run SQL queries — all without leaving your terminal.
+          HOMEOF
+
+          # Append dynamic version line
+          echo "" >> Home.md
+          echo "**Version:** v${VERSION} · [Releases](https://github.com/${{ github.repository }}/releases) · [Documentation](https://sibasismukherjee.github.io/pgview.html) · [Try it →](https://sibasismukherjee.github.io/try-pgview.html)" >> Home.md
+
+          # Append static sections from README (Features table, Installation, Usage)
+          python3 << 'PYEOF'
+          import re, pathlib
+
+          readme = pathlib.Path("../README.md").read_text()
+          home   = pathlib.Path("Home.md").read_text()
+
+          # Extract Features block
+          m = re.search(r'## Features\n(.*?)(?=\n---|\Z)', readme, re.DOTALL)
+          features_block = m.group(0) if m else ""
+
+          # Extract Installation block
+          m = re.search(r'## Installation\n(.*?)(?=\n---|\Z)', readme, re.DOTALL)
+          install_block = m.group(0) if m else ""
+
+          # Extract Usage block
+          m = re.search(r'## Usage\n(.*?)(?=\n---|\Z)', readme, re.DOTALL)
+          usage_block = m.group(0) if m else ""
+
+          out = home + "\n\n---\n\n"
+          out += features_block + "\n\n---\n\n"
+          out += install_block + "\n\n---\n\n"
+          out += usage_block + "\n\n---\n\n"
+          out += """## Wiki pages
+
+          - [[Keyboard Reference]] — complete key bindings for every view
+          - [[Filter DSL]] — the `/` filter mini-language reference
+          - [[SQL Templates]] — pre-filled templates and how to use them
+          - [[Roadmap]] — planned features and timeline
+
+          ---
+
+          ## Contributing
+
+          1. Search or open an [Issue](https://github.com/${{ github.repository }}/issues) first
+          2. Fork → branch from `main` → PR
+          3. Tests and lint must pass
+
+          MIT License — see [LICENSE](https://github.com/${{ github.repository }}/blob/main/LICENSE).
+          """
+
+          pathlib.Path("Home.md").write_text(out)
+          print("Home.md written")
+          PYEOF
+
+          echo "Wiki pages written"
+
+      - name: Copy static wiki pages
+        run: |
+          cp .github/wiki/*.md wiki/ 2>/dev/null || true
+
+      - name: Commit and push wiki
+        run: |
+          cd wiki
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to push"
+          else
+            git commit -m "wiki: sync docs from v${{ steps.ver.outputs.version }} [skip ci]"
+            WIKI_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
+            git push "$WIKI_URL" HEAD:master || git push "$WIKI_URL" HEAD:main
+          fi
+
+  notify-portfolio:
+    name: Trigger portfolio update
+    runs-on: ubuntu-latest
+    needs: sync-wiki
+    if: ${{ !failure() }}
+
+    steps:
+      - name: Extract version
+        id: ver
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: getver
+        run: |
+          VERSION=$(grep -oP 'var version = "\K[^"]+' main.go)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch to portfolio repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PORTFOLIO_PAT }}
+          repository: sibasismukherjee/sibasismukherjee.github.io
+          event-type: pgview-docs-updated
+          client-payload: |
+            {
+              "version": "${{ steps.getver.outputs.version }}",
+              "sha": "${{ github.sha }}",
+              "ref": "${{ github.ref_name }}"
+            }
