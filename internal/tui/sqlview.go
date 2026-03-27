@@ -390,7 +390,13 @@ func (app *App) openSQL(sql string) {
 			return nil
 		case event.Key() == tcell.KeyEscape:
 			app.pages.RemovePage(pageSQLEditor)
-			app.switchPage(app.currentContentPage())
+			dest := app.currentContentPage()
+			app.switchPage(dest)
+			if dest == pageTableList {
+				app.setTooltip(hotkeysTableList)
+			} else {
+				app.setTooltip(hotkeysData)
+			}
 			return nil
 		case event.Key() == tcell.KeyCtrlR:
 			if len(app.sqlHistory) > 0 {
