@@ -499,7 +499,7 @@ func (app *App) doRunSQL(query, kind string) {
 	dur := time.Since(start)
 
 	// ── Audit log ─────────────────────────────────────────────────────────
-	if app.auditMode && app.auditLogger != nil {
+	if app.auditMode {
 		schema, table := splitTable(app.curTable)
 		rows := -1
 		if result != nil && kind == "" {
@@ -516,7 +516,7 @@ func (app *App) doRunSQL(query, kind string) {
 		case "TRUNCATE":
 			stmtType = audit.StmtDDL
 		}
-		app.auditLogger.Log(audit.Record{
+		app.logAudit(audit.Record{
 			Type:     stmtType,
 			Schema:   schema,
 			Table:    table,
@@ -556,15 +556,18 @@ func (app *App) doRunSQL(query, kind string) {
 	}
 
 	app.showSQLResult(result, err)
+
+	// Show a status-bar warning when pre-capture was skipped (too many rows or
+	// complex statement) so the operator knows restore SQL is incomplete.
+	if captureSkipped && app.auditMode {
+		app.setFooter("[#dcdcaa][AUDIT] restore capture skipped — too many rows or complex statement[-]")
+	}
 }
 
 // logAbortedDML is called by the confirm modal's onAbort callback.
 func (app *App) logAbortedDML(kind, query string) {
-	if !app.auditMode || app.auditLogger == nil {
-		return
-	}
 	schema, table := splitTable(app.curTable)
-	app.auditLogger.Log(audit.Record{
+	app.logAudit(audit.Record{
 		Type:        audit.StmtAborted,
 		Schema:      schema,
 		Table:       table,

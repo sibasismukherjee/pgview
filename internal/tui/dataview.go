@@ -3,9 +3,12 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
 // showData loads and displays paginated rows for app.curTable.
@@ -108,7 +111,26 @@ func (app *App) loadData() {
 	}
 	app.lastSQL = sql
 
+	stmtType := audit.StmtSelect
+	if whereClause != "" {
+		stmtType = audit.StmtFilter
+	}
+	start := time.Now()
 	result, err := app.client.Query(sql)
+	dur := time.Since(start)
+	rows := -1
+	if err == nil && result != nil {
+		rows = len(result.Rows)
+	}
+	app.logAudit(audit.Record{
+		Type:     stmtType,
+		Schema:   schema,
+		Table:    table,
+		SQL:      sql,
+		Duration: dur,
+		Rows:     rows,
+		Err:      err,
+	})
 	if err != nil {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("query error: %v", err)))
 		app.setHeader("Data", app.curTable)

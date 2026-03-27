@@ -3,9 +3,12 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
 const dataPageSize = 200
@@ -54,7 +57,9 @@ func (app *App) showTableList() {
 			if table != "" {
 				// Query stats for the hovered table without changing curTable
 				// (the user has not navigated into it yet).
+				statsStart := time.Now()
 				estRows, pkCols, idxCount := app.client.TableInfo(schema, table)
+				statsDur := time.Since(statsStart)
 				pk := pkCols
 				if pk == "" {
 					pk = "—"
@@ -63,6 +68,14 @@ func (app *App) showTableList() {
 					"[#c8daf0]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
 					schema, table, fmtCount(estRows), pk, idxCount,
 				))
+				app.logAudit(audit.Record{
+					Type:     audit.StmtStats,
+					Schema:   schema,
+					Table:    table,
+					SQL:      fmt.Sprintf("-- stats for %s.%s", schema, table),
+					Duration: statsDur,
+					Rows:     -1,
+				})
 			}
 			return nil
 		case event.Rune() == 'q':

@@ -56,9 +56,8 @@ func (app *App) estimateDMLRows(sql string) int64 {
 	return int64(plans[0].Plan.PlanRows)
 }
 
-// confirmThreshold is the row-count above which DML triggers the confirm modal.
-// UPDATE/DELETE without a WHERE clause always trigger regardless of this value.
-const confirmThreshold = 50
+// defaultConfirmThreshold is the built-in row-count gate when no config is set.
+const defaultConfirmThreshold = 50
 
 // executeWithGuards is the gated entry point for all SQL from the editor.
 // DML is inspected, confirmed if needed, then handed off to doRunSQL.
@@ -70,9 +69,17 @@ func (app *App) executeWithGuards(query string) {
 		return
 	}
 
+	threshold := app.dmlConfirmThreshold
+	if threshold == 0 {
+		// Confirmation disabled — execute directly.
+		app.doRunSQL(query, kind)
+		return
+	}
+
 	noWhere := (kind == "UPDATE" || kind == "DELETE") && !hasWhereClause(query)
 	estRows := app.estimateDMLRows(query)
-	needsConfirm := kind == "TRUNCATE" || noWhere || estRows > confirmThreshold || estRows < 0
+	// threshold == -1 means confirm all DML; otherwise compare estimate.
+	needsConfirm := kind == "TRUNCATE" || noWhere || threshold < 0 || estRows > int64(threshold) || estRows < 0
 
 	if !needsConfirm {
 		app.doRunSQL(query, kind)

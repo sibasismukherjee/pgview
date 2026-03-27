@@ -23,7 +23,14 @@ func main() {
 	dbname := flag.String("dbname", "postgres", "Database name")
 	sslmode := flag.String("sslmode", "prefer", "SSL mode (disable|allow|prefer|require)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
+	dmlConfirm := flag.Int("dml-confirm", -999, "DML confirmation row threshold (0=disable, -1=always; overrides config.yml)")
 	flag.Parse()
+
+	// Resolve threshold: flag overrides config, config overrides built-in default.
+	threshold := tui.LoadConfig()
+	if *dmlConfirm != -999 {
+		threshold = *dmlConfirm
+	}
 
 	if *showVersion {
 		fmt.Printf("pgview %s\n", version)
@@ -69,5 +76,5 @@ func main() {
 	}
 	defer client.Close()
 
-	tui.Run(client, version)
+	tui.Run(client, version, threshold)
 }

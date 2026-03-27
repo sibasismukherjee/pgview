@@ -2,9 +2,12 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
 const pageFuzzy = "fuzzy"
@@ -42,7 +45,16 @@ func (app *App) showFuzzy() {
 	// Pre-load all schema+table pairs once.
 	var allItems []fuzzyItem
 	if app.client != nil {
-		if result, err := app.client.ListTables(); err == nil {
+		fuzzyStart := time.Now()
+		result, err := app.client.ListTables()
+		app.logAudit(audit.Record{
+			Type:     audit.StmtFuzzy,
+			SQL:      "-- list all tables (fuzzy finder)",
+			Duration: time.Since(fuzzyStart),
+			Rows:     -1,
+			Err:      err,
+		})
+		if err == nil {
 			for _, row := range result.Rows {
 				if len(row) >= 2 {
 					allItems = append(allItems, fuzzyItem{schema: row[0], table: row[1]})

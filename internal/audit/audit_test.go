@@ -183,6 +183,47 @@ func TestRestoreLoggerLogSkipped(t *testing.T) {
 	}
 }
 
+func TestLoggerConcurrentWrites(t *testing.T) {
+	l, err := NewLogger("concdb", "user", "localhost:5432", "0.4.1")
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer os.Remove(l.Path())
+	defer l.Close("")
+
+	const goroutines = 20
+	const stmtsEach = 10
+	done := make(chan struct{}, goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func() {
+			for i := 0; i < stmtsEach; i++ {
+				l.Log(Record{Type: StmtSelect, SQL: "SELECT 1", Rows: 1})
+			}
+			done <- struct{}{}
+		}()
+	}
+	for g := 0; g < goroutines; g++ {
+		<-done
+	}
+
+	data, err := os.ReadFile(l.Path())
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	// Every line should end with a newline — no interleaved partial writes.
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	stmtLines := 0
+	for _, line := range lines {
+		if strings.HasPrefix(line, "[") {
+			stmtLines++
+		}
+	}
+	want := goroutines * stmtsEach
+	if stmtLines != want {
+		t.Errorf("want %d statement lines, got %d", want, stmtLines)
+	}
+}
+
 func TestIdentAndLit(t *testing.T) {
 	tests := []struct {
 		fn   func(string) string

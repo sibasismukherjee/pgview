@@ -12,8 +12,6 @@ import (
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
-// colAuditBadge is the bright amber used for the ● AUDIT badge.
-var colAuditBadge = tcell.NewRGBColor(255, 195, 0)
 
 const (
 	pageTableList = "tables"
@@ -70,19 +68,23 @@ type App struct {
 	dataRowCount     int // last rendered row count from loadData
 
 	// Audit / restore logging (issues #28 #29)
-	auditMode     bool
-	auditLogger   *audit.Logger
-	restoreLogger *audit.RestoreLogger
-	version       string
+	auditMode            bool
+	auditLogger          *audit.Logger
+	restoreLogger        *audit.RestoreLogger
+	version              string
+	dmlConfirmThreshold  int // 0 = disabled, -1 = always confirm, default 50
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.
-func Run(client *db.Client, version string) {
+// dmlConfirmThreshold controls the row-count confirmation gate (50 by default;
+// 0 disables confirmation entirely; -1 requires confirmation for all DML).
+func Run(client *db.Client, version string, dmlConfirmThreshold int) {
 	app := &App{
-		tv:      tview.NewApplication(),
-		pages:   tview.NewPages(),
-		client:  client,
-		version: version,
+		tv:                  tview.NewApplication(),
+		pages:               tview.NewPages(),
+		client:              client,
+		version:             version,
+		dmlConfirmThreshold: dmlConfirmThreshold,
 	}
 	app.dbName = client.CurrentDB()
 	app.dbUser = client.CurrentUser()
@@ -395,9 +397,28 @@ func (app *App) toggleAuditMode() {
 }
 
 // auditBadge returns the tview-markup badge string when audit mode is active, else "".
+// Amber while no DML has been executed; red once ≥1 DML statement is logged.
 func (app *App) auditBadge() string {
 	if !app.auditMode {
 		return ""
 	}
-	return " [#ffc300::b]● AUDIT[-]"
+	color := "#ffc300" // amber — no DML yet
+	if app.auditLogger != nil && app.auditLogger.DMLCount() > 0 {
+		color = "#f44747" // red — DML executed this session
+	}
+	return fmt.Sprintf(" [%s::b]● AUDIT[-]", color)
+}
+
+// logAudit records r in the audit log when audit mode is active.
+// It is a no-op when audit mode is off. After DML statements it refreshes the
+// connPanel badge (amber→red transition) and calls setConnPanel.
+func (app *App) logAudit(r audit.Record) {
+	if !app.auditMode || app.auditLogger == nil {
+		return
+	}
+	app.auditLogger.Log(r)
+	switch r.Type {
+	case audit.StmtUpdate, audit.StmtInsert, audit.StmtDelete, audit.StmtDDL:
+		app.setConnPanel()
+	}
 }

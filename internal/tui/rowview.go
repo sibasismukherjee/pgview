@@ -234,7 +234,7 @@ func (app *App) showRowView() {
 			}
 
 			// ── Audit: log original values for restore ────────────────────
-			if app.auditMode && app.auditLogger != nil {
+			if app.auditMode {
 				rparts := strings.SplitN(app.curTable, ".", 2)
 				if len(rparts) == 2 {
 					fqTable := pgIdent(rparts[0]) + "." + pgIdent(rparts[1])
@@ -245,7 +245,7 @@ func (app *App) showRowView() {
 					if app.restoreLogger != nil {
 						app.restoreLogger.LogRowEditorSave(fqTable, pkCol, pkVal, sql, origFields)
 					}
-					app.auditLogger.Log(audit.Record{
+					app.logAudit(audit.Record{
 						Type:   audit.StmtUpdate,
 						Schema: rparts[0],
 						Table:  rparts[1],
