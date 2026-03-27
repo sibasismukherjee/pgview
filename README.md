@@ -11,9 +11,11 @@ Connect to any PostgreSQL-compatible endpoint (direct host, pgBouncer, RDS Proxy
 - **k9s-style TUI** — navigable table list, data view, and describe view
 - **Connect anywhere** — host:port, pgBouncer, RDS Proxy, or a full `postgres://` DSN
 - **Paginated data view** — scroll through large tables with `n`/`p`
-- **Client-side filter** — narrow any view instantly with `/`
+- **Smart filter DSL** — narrow data rows with `/`: `col=val`, `col=%sub%`, `col>val`, or free text; array and JSONB columns match element-wise
 - **SQL editor** — open a full-screen SQL editor with `e`, run with `Ctrl+E`
-- **Tab completion** — press `Tab` in the SQL editor to complete keywords and table names
+- **Schema-aware Tab completion** — clause-sensitive suggestions: type-matched operators after column names (LIKE for text, >= for timestamps, IS TRUE for booleans, = ANY( for arrays), table names after FROM/JOIN, column names in SELECT/WHERE
+- **Full cell viewer** — press `f` in data view to inspect long JSON blobs or wide values in a popup
+- **Query history** — `Ctrl+R` in the SQL editor opens a navigable history panel
 - **Describe columns** — schema, type, nullability, defaults at a glance
 - **Secure password prompt** — no echo, uses terminal raw mode
 
@@ -109,18 +111,36 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 |-----|--------|
 | `↑` / `↓` | Move selection |
 | `n` / `p` | Next / previous page (200 rows per page) |
-| `/` | Filter rows by substring |
+| `g` / `G` | Jump to top / bottom |
+| `/` | Open filter prompt |
+| `f` | Full cell viewer (popup for long values) |
 | `d` | Describe columns of this table |
+| `i` | Refresh table stats (row count, PK, indexes) |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
-| `Esc` | Back to table list |
+| `Esc` | Back to table list (clears filter) |
+
+### Filter DSL
+
+The `/` filter accepts a mini-language; terms are AND-ed:
+
+| Input | Behaviour |
+|-------|-----------|
+| `col=val` | Exact match — `'val' = ANY(col)` for arrays, `ILIKE 'val'` for scalars |
+| `col=%val%` | Substring match — element-wise for arrays |
+| `col!=val` | Negation |
+| `col>val` / `col>=val` etc. | Numeric / date comparison |
+| `name="john doe"` | Quote values containing spaces |
+| `freetext` | Search across all columns with `ILIKE '%freetext%'` |
 
 ### SQL editor
 
 | Key | Action |
 |-----|--------|
 | `Ctrl+E` | Execute query |
-| `Tab` | Complete keyword or table name |
+| `Tab` | Context-aware completion (operator → table → column → keyword) |
+| `Ctrl+R` | Open query history panel |
+| `Ctrl+L` | Clear editor |
 | `Esc` | Cancel and go back |
 
 ### Describe view

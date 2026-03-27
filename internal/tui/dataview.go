@@ -58,9 +58,56 @@ func (app *App) showData() {
 		case event.Rune() == 'e':
 			app.openSQL(app.lastSQL)
 			return nil
+		case event.Rune() == 'g':
+			app.dataWidget.ScrollToBeginning()
+			app.dataWidget.Select(1, 0)
+			return nil
+		case event.Rune() == 'G':
+			app.dataWidget.Select(app.dataWidget.GetRowCount()-1, 0)
+			app.dataWidget.ScrollToEnd()
+			return nil
+		case event.Rune() == 'f':
+			row, col := app.dataWidget.GetSelection()
+			cell := app.dataWidget.GetCell(row, col)
+			if cell != nil {
+				app.showCellView(strings.TrimSpace(cell.Text))
+			}
+			return nil
+		case event.Rune() == 'i':
+			app.statsCachedTable = "" // force refresh
+			app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", app.dataRowCount, app.statsForCurrentTable()))
+			return nil
 		}
 		return app.globalKeys(event)
 	})
+}
+
+// showCellView opens a full-screen popup displaying the raw text of a cell.
+// Useful for inspecting JSON payloads, long strings, and other wide values.
+func (app *App) showCellView(content string) {
+	const pageCellView = "cellview"
+	tv := tview.NewTextView().
+		SetText(content).
+		SetWordWrap(true).
+		SetDynamicColors(false)
+	tv.SetBackgroundColor(tcell.ColorDefault)
+
+	frame := tview.NewFrame(tv).
+		SetBorders(1, 1, 1, 1, 1, 1).
+		AddText("[::b]Cell Content[::-]  [grey]Esc[::-] close", true, tview.AlignLeft, colPageTitle)
+	frame.SetBackgroundColor(tcell.ColorDefault)
+	frame.SetBorderColor(colBorder)
+
+	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			app.pages.RemovePage(pageCellView)
+			app.tv.SetFocus(app.dataWidget)
+		}
+		return event
+	})
+
+	app.pages.AddPage(pageCellView, frame, true, true)
+	app.tv.SetFocus(tv)
 }
 
 func (app *App) loadData() {
@@ -74,10 +121,20 @@ func (app *App) loadData() {
 	}
 	schema, table := parts[0], parts[1]
 
-	sql := fmt.Sprintf(
-		`SELECT * FROM %s.%s LIMIT %d OFFSET %d`,
-		pgIdent(schema), pgIdent(table), dataPageSize, app.dataOffset,
-	)
+	// Build the WHERE clause from the user's filter expression.
+	whereClause := parseFilter(app.dataFilter, app.tableColumns)
+	var sql string
+	if whereClause != "" {
+		sql = fmt.Sprintf(
+			`SELECT * FROM %s.%s WHERE %s LIMIT %d OFFSET %d`,
+			pgIdent(schema), pgIdent(table), whereClause, dataPageSize, app.dataOffset,
+		)
+	} else {
+		sql = fmt.Sprintf(
+			`SELECT * FROM %s.%s LIMIT %d OFFSET %d`,
+			pgIdent(schema), pgIdent(table), dataPageSize, app.dataOffset,
+		)
+	}
 	app.lastSQL = sql
 
 	result, err := app.client.Query(sql)
@@ -85,6 +142,16 @@ func (app *App) loadData() {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("query error: %v", err)))
 		app.setHeader("Data", app.curTable)
 		return
+	}
+
+	// Cache column names and OIDs for filter parsing on subsequent loads.
+	app.tableColumns = make([]columnInfo, len(result.Columns))
+	for i, name := range result.Columns {
+		var oid uint32
+		if i < len(result.ColumnOIDs) {
+			oid = result.ColumnOIDs[i]
+		}
+		app.tableColumns[i] = columnInfo{Name: name, OID: oid}
 	}
 
 	// Column headers
@@ -97,22 +164,9 @@ func (app *App) loadData() {
 		t.SetCell(0, col, cell)
 	}
 
-	// Apply client-side filter and render with type-aware colours.
-	filter := strings.ToLower(app.dataFilter)
+	// Render rows with type-aware colours.
 	row := 1
 	for _, r := range result.Rows {
-		if filter != "" {
-			match := false
-			for _, v := range r {
-				if strings.Contains(strings.ToLower(v), filter) {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
 		for col, v := range r {
 			var oid uint32
 			if col < len(result.ColumnOIDs) {
@@ -136,12 +190,18 @@ func (app *App) loadData() {
 	}
 	app.setHeader("Data", subtitle)
 	rowCount := row - 1
-	app.setFooter(fmt.Sprintf("[white]%d rows[-]", rowCount))
+	app.dataRowCount = rowCount
+	app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", rowCount, app.statsForCurrentTable()))
+	if whereClause != "" {
+		app.setFooter(fmt.Sprintf("[#6a6a6a]WHERE %s[-]", whereClause))
+	} else {
+		app.setFooter("")
+	}
 	t.ScrollToBeginning()
 }
 
 func (app *App) dataFilterPrompt() {
-	app.showCmdBar("[::b]filter[::-]", "substring to match in any column…", func(key tcell.Key) {
+	app.showCmdBar("[::b]filter[::-]", "col=exact  col=%sub%  col>val  freetext…", func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			app.dataFilter = app.cmdBar.GetText()
 			app.dataOffset = 0
@@ -150,6 +210,7 @@ func (app *App) dataFilterPrompt() {
 		}
 		app.hideCmdBar()
 		app.loadData()
+		app.tv.SetFocus(app.dataWidget)
 	})
 }
 

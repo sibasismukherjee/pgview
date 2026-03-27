@@ -49,6 +49,22 @@ func (app *App) showTableList() {
 		case event.Rune() == 'e':
 			app.openSQL("")
 			return nil
+		case event.Rune() == 'i':
+			schema, table := app.selectedTable()
+			if table != "" {
+				// Query stats for the hovered table without changing curTable
+				// (the user has not navigated into it yet).
+				estRows, pkCols, idxCount := app.client.TableInfo(schema, table)
+				pk := pkCols
+				if pk == "" {
+					pk = "—"
+				}
+				app.setInfoStats(fmt.Sprintf(
+					"[#c8daf0]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
+					schema, table, fmtCount(estRows), pk, idxCount,
+				))
+			}
+			return nil
 		case event.Rune() == 'q':
 			app.tv.Stop()
 			return nil

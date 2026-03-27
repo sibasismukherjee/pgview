@@ -5,9 +5,11 @@ import "github.com/gdamore/tcell/v2"
 // Colour palette — VSCode Dark+ inspired, neutral and developer-friendly.
 var (
 	// Layout chrome
-	colHeader    = tcell.NewRGBColor(30, 30, 30)    // #1e1e1e  editor background
-	colTooltip   = tcell.NewRGBColor(37, 37, 38)    // #252526  sidebar background
+	colHeader    = tcell.NewRGBColor(30, 30, 30)    // #1e1e1e  editor background (hintBar middle)
+	colTooltip   = tcell.NewRGBColor(37, 37, 38)    // #252526  sidebar background (connPanel left)
 	colTooltipFg = tcell.NewRGBColor(150, 150, 150) // #969696  muted gray
+	colInfoBg    = tcell.NewRGBColor(14, 52, 96)    // #0e3460  deep navy (infoBar right)
+	colInfoFg    = tcell.NewRGBColor(200, 218, 240) // #c8daf0  light blue-white (infoBar text)
 	colFooter    = tcell.NewRGBColor(0, 122, 204)   // #007acc  VSCode statusbar blue
 	colFooterFg  = tcell.NewRGBColor(255, 255, 255) // white
 
@@ -56,10 +58,32 @@ const (
 	oidJSONB       uint32 = 3802
 )
 
-// hotkeys for each view — displayed in the tooltip bar below the header.
+// hotkeys for each view — 2-row tooltip bar. Each row ≤ 80 visible chars so
+// the tview.TextView never word-wraps. Keys in blue, │ separators in muted gray.
 const (
-	hotkeysTableList = "  [#569cd6]↵[-] view   [#569cd6]d[-] describe   [#569cd6]/[-] filter   [#569cd6]r[-] refresh   [#569cd6]e[-] SQL   [#569cd6]q[-] quit"
-	hotkeysData      = "  [#569cd6]Esc[-] back   [#569cd6]/[-] filter   [#569cd6]n/p[-] page   [#569cd6]d[-] describe   [#569cd6]e[-] SQL   [#569cd6]r[-] refresh"
-	hotkeysDescribe  = "  [#569cd6]Esc[-] back   [#569cd6]↵[-] view data   [#569cd6]q[-] quit"
-	hotkeysSQL       = "  [#569cd6]Ctrl+E[-] run   [#569cd6]Tab[-] complete   [#569cd6]Esc[-] cancel"
+	// Tables view
+	hotkeysTableList = "\n" +
+		"  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] describe  [#569cd6]<i>[-] stats" +
+		"  [#6a6a6a]│[-]  [#569cd6]</>[-] filter  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<q>[-] quit"
+
+	// Data view — row 1: navigation/pagination/filter; row 2: view/actions
+	hotkeysData = "\n" +
+		"  [#569cd6]<Esc>[-] back  [#569cd6]<g>[-] top  [#569cd6]<G>[-] bottom" +
+		"  [#6a6a6a]│[-]  [#569cd6]<n>/<p>[-] page  [#6a6a6a]│[-]  [#569cd6]</>[-] filter\n" +
+		"  [#569cd6]<d>[-] describe  [#569cd6]<f>[-] full cell  [#569cd6]<i>[-] stats" +
+		"  [#6a6a6a]│[-]  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL"
+
+	// Describe view
+	hotkeysDescribe = "\n" +
+		"  [#569cd6]<Esc>[-] table list  [#569cd6]<↵>[-] view data" +
+		"  [#6a6a6a]│[-]  [#569cd6]<e>[-] SQL editor  [#569cd6]<q>[-] quit"
+
+	// SQL editor — row 1: editor keys; row 2: history panel hint
+	hotkeysSQL = "\n" +
+		"  [#569cd6]<Ctrl+E>[-] run  [#569cd6]<Tab>[-] complete  [#569cd6]<Ctrl+L>[-] clear  [#569cd6]<Esc>[-] cancel\n" +
+		"  [#569cd6]<Ctrl+R>[-] history panel"
+
+	// History panel (inside SQL editor)
+	hotkeysHistory = "\n" +
+		"  [#569cd6]<↵>[-] load  [#569cd6]<Esc>[-] back to editor  [#6a6a6a]│[-]  [#569cd6]<↑↓>[-] navigate"
 )
