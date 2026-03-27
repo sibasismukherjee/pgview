@@ -31,6 +31,8 @@
 
 ## Demo
 
+![pgview demo](assets/demo.gif)
+
 **Table list**
 ```
  pgview              │  <↵> view  <d> schema  <i> stats              │  Tables
