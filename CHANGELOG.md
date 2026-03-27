@@ -4,6 +4,38 @@ All notable changes to pgview are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**SQL templates panel**
+- `Ctrl+T` in the SQL editor opens a templates panel on the left side (top 2/3 of the left column, above history)
+- Templates are pre-filled with the current table's real column names, quoted identifiers, and primary-key column
+- Categories: **Query** (SELECT \*, SELECT cols, SELECT WHERE, COUNT), **Write** (INSERT, UPDATE, DELETE, UPSERT with ON CONFLICT), **DDL** (ADD COLUMN, DROP COLUMN, CREATE INDEX, ANALYZE, TRUNCATE)
+- Category headers are non-selectable; use `↑`/`↓` to navigate, `Enter` to load into editor, `Esc` to return focus to editor
+- When opened from the table list (no `curTable`), generic `schema`/`table`/`col1` placeholders are used
+
+**Mouse and touchpad scroll**
+- Vertical scroll (mouse wheel or two-finger swipe) moves the row selection in all table views (table list, data view, describe view); works with any number of rows including when all rows fit on screen
+- Horizontal scroll (two-finger horizontal swipe on touchpad, `WheelLeft`/`WheelRight`) pans the column viewport in wide result sets — no arrow keys required
+- SQL editor's TextArea handles its own scroll natively and is unaffected
+
+**Row viewer and inline editor**
+- `f` in the data view now opens a full-screen Row Viewer instead of the previous single-cell text popup
+- All columns of the selected row are shown in a two-column bordered table: **Column | Value**, with type-aware colouring (numbers, booleans, UUIDs, timestamps, JSON, NULL) matching the data view
+- **Edit mode**: press `e` or `Enter` on any field to open the input bar pre-filled with the current value; confirm with `Enter` or cancel with `Esc`
+- Modified fields are highlighted in teal with an `(edited)` marker; the footer shows the count of unsaved changes
+- **Save**: `Ctrl+S` builds `UPDATE schema.table SET col = 'val' WHERE pk = 'orig_val'` and executes it; the original PK value is used in `WHERE` so edits to the PK itself route to the correct row; the data view refreshes on success
+- `NULL` (any case) is written as `col = NULL` rather than a quoted string
+- `pgQuoteLiteral()` added for safe single-quote escaping of all user-supplied values
+- Hotkey hint on the data view updated from "full cell" to "row view/edit"
+
+### Fixed
+
+- Hotkey tooltip bar now correctly restores the previous view's hotkeys when exiting the SQL editor via `Esc` — previously the tooltip stayed on the SQL editor hotkeys after returning to the table list or data view
+
+---
+
 ## [v0.3.0] — 2026-03-27
 
 ### Added

@@ -12,6 +12,138 @@ import (
 
 const pageSQLEditor = "sqleditor"
 
+// templateItem is one row in the templates panel.
+// Category headers have isHeader=true and sql="".
+type templateItem struct {
+	label    string
+	sql      string
+	isHeader bool
+}
+
+// buildSQLTemplates generates pre-filled SQL templates for a table using its columns.
+// schema and table are unquoted identifiers; pkCol is the first primary key column name
+// (unquoted). If cols is empty or schema/table are blank, generic placeholders are used.
+func buildSQLTemplates(schema, table string, cols []columnInfo, pkCol string) []templateItem {
+	// Quoted identifiers for SQL generation.
+	fq := pgIdent(schema) + "." + pgIdent(table)
+	if schema == "" || table == "" {
+		fq = "schema.table"
+	}
+
+	pk := pgIdent(pkCol)
+	if pkCol == "" {
+		pk = "id"
+	}
+
+	// Column name list for SELECT / INSERT / UPDATE.
+	var colIdents []string
+	for _, c := range cols {
+		colIdents = append(colIdents, pgIdent(c.Name))
+	}
+	if len(colIdents) == 0 {
+		colIdents = []string{"col1", "col2"}
+	}
+
+	colList := strings.Join(colIdents, ", ")
+
+	// Non-PK columns (for UPDATE SET and INSERT).
+	var nonPKIdents []string
+	for _, c := range cols {
+		if !strings.EqualFold(c.Name, pkCol) {
+			nonPKIdents = append(nonPKIdents, pgIdent(c.Name))
+		}
+	}
+	if len(nonPKIdents) == 0 {
+		nonPKIdents = colIdents
+	}
+
+	// VALUES placeholders for INSERT.
+	vals := make([]string, len(nonPKIdents))
+	for i := range vals {
+		vals[i] = "''"
+	}
+	valList := strings.Join(vals, ", ")
+
+	// SET clause for UPDATE.
+	setClauses := make([]string, len(nonPKIdents))
+	for i, c := range nonPKIdents {
+		setClauses[i] = c + " = ''"
+	}
+	setClause := strings.Join(setClauses, ",\n    ")
+
+	// EXCLUDED SET for UPSERT.
+	excludedClauses := make([]string, len(nonPKIdents))
+	for i, c := range nonPKIdents {
+		excludedClauses[i] = c + " = EXCLUDED." + c
+	}
+	excludedClause := strings.Join(excludedClauses, ",\n    ")
+
+	// Index name and first non-PK column for CREATE INDEX.
+	idxCol := nonPKIdents[0]
+	idxColRaw := strings.Trim(idxCol, `"`)
+	idxName := "idx_" + table + "_" + idxColRaw
+	if table == "" {
+		idxName = "idx_table_col1"
+	}
+
+	// Drop column: first non-PK.
+	dropCol := nonPKIdents[0]
+
+	return []templateItem{
+		// ── Query ──────────────────────────────────────────────────────────
+		{label: " ── Query ─────────────────", isHeader: true},
+		{label: "  SELECT *", sql: fmt.Sprintf("SELECT *\nFROM %s\nLIMIT 100", fq)},
+		{label: "  SELECT cols", sql: fmt.Sprintf("SELECT %s\nFROM %s", colList, fq)},
+		{label: "  SELECT WHERE", sql: fmt.Sprintf("SELECT *\nFROM %s\nWHERE %s = ", fq, pk)},
+		{label: "  COUNT", sql: fmt.Sprintf("SELECT COUNT(*)\nFROM %s", fq)},
+
+		// ── Write ──────────────────────────────────────────────────────────
+		{label: " ── Write ─────────────────", isHeader: true},
+		{label: "  INSERT", sql: fmt.Sprintf(
+			"INSERT INTO %s\n  (%s)\nVALUES\n  (%s)",
+			fq, strings.Join(nonPKIdents, ", "), valList)},
+		{label: "  UPDATE", sql: fmt.Sprintf(
+			"UPDATE %s\nSET\n    %s\nWHERE %s = ",
+			fq, setClause, pk)},
+		{label: "  DELETE", sql: fmt.Sprintf("DELETE FROM %s\nWHERE %s = ", fq, pk)},
+		{label: "  UPSERT", sql: fmt.Sprintf(
+			"INSERT INTO %s\n  (%s)\nVALUES\n  (%s)\nON CONFLICT (%s) DO UPDATE\n  SET\n    %s",
+			fq, strings.Join(nonPKIdents, ", "), valList, pk, excludedClause)},
+
+		// ── DDL ────────────────────────────────────────────────────────────
+		{label: " ── DDL ───────────────────", isHeader: true},
+		{label: "  ADD COLUMN", sql: fmt.Sprintf(
+			"ALTER TABLE %s\n  ADD COLUMN new_column text", fq)},
+		{label: "  DROP COLUMN", sql: fmt.Sprintf(
+			"ALTER TABLE %s\n  DROP COLUMN %s", fq, dropCol)},
+		{label: "  CREATE INDEX", sql: fmt.Sprintf(
+			"CREATE INDEX %s\n  ON %s (%s)", pgIdent(idxName), fq, idxCol)},
+		{label: "  ANALYZE", sql: fmt.Sprintf("ANALYZE %s", fq)},
+		{label: "  TRUNCATE", sql: fmt.Sprintf("TRUNCATE TABLE %s", fq)},
+	}
+}
+
+// splitTable splits "schema.table" into its two parts.
+// Returns ("public", s) when there is no dot.
+func splitTable(s string) (schema, table string) {
+	if parts := strings.SplitN(s, ".", 2); len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return "public", s
+}
+
+// firstPK returns the first primary-key column name from a comma-separated pkCols
+// string (as returned by TableInfo). Falls back to the first column name, then "id".
+func firstPK(pkCols string, cols []columnInfo) string {
+	if pkCols != "" {
+		return strings.TrimSpace(strings.SplitN(pkCols, ",", 2)[0])
+	}
+	if len(cols) > 0 {
+		return cols[0].Name
+	}
+	return "id"
+}
+
 // sqlPreview returns a single-line truncated preview of a SQL string.
 func sqlPreview(sql string, maxLen int) string {
 	s := strings.Join(strings.Fields(sql), " ")
@@ -30,6 +162,25 @@ func (app *App) openSQL(sql string) {
 	editor.SetBackgroundColor(tcell.ColorDefault)
 	editor.SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite))
 	editor.SetBorderPadding(0, 0, 1, 1)
+
+	// ── Templates panel ───────────────────────────────────────────────────
+	templatesTable := tview.NewTable().
+		SetSelectable(true, false).
+		SetFixed(1, 0)
+	templatesTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
+	templatesTable.SetSelectedStyle(
+		tcell.StyleDefault.
+			Background(colSelected).
+			Foreground(colSelectedFg),
+	)
+	templatesTable.SetCell(0, 0,
+		tview.NewTableCell(" Templates").
+			SetTextColor(colPageTitle).
+			SetSelectable(false))
+
+	// Build templates from current table's columns.
+	schema, table := splitTable(app.curTable)
+	// fetchColumns is defined below; call after its definition.
 
 	// ── History panel ─────────────────────────────────────────────────────
 	historyTable := tview.NewTable().
@@ -59,8 +210,13 @@ func (app *App) openSQL(sql string) {
 		}
 	}
 
+	leftPanel := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(templatesTable, 0, 2, false).
+		AddItem(historyTable, 0, 1, false)
+
 	splitFlex := tview.NewFlex().
-		AddItem(historyTable, 34, 0, false).
+		AddItem(leftPanel, 36, 0, false).
 		AddItem(editor, 0, 1, true)
 
 	frame := tview.NewFrame(splitFlex).
@@ -119,6 +275,24 @@ func (app *App) openSQL(sql string) {
 		return cols
 	}
 
+	// Populate templates now that fetchColumns is available.
+	// The input capture is set later, after updateHint is defined.
+	tplCols := fetchColumns(app.curTable)
+	var tplPKCols string
+	if app.client != nil && table != "" {
+		_, tplPKCols, _ = app.client.TableInfo(schema, table)
+	}
+	tplItems := buildSQLTemplates(schema, table, tplCols, firstPK(tplPKCols, tplCols))
+	for i, item := range tplItems {
+		cell := tview.NewTableCell(item.label)
+		if item.isHeader {
+			cell.SetTextColor(colMuted).SetSelectable(false)
+		} else {
+			cell.SetTextColor(tcell.ColorWhite)
+		}
+		templatesTable.SetCell(i+1, 0, cell)
+	}
+
 	// computeCompletion derives word, wordStart, and completion from text + cursor.
 	computeCompletion := func(text string, pos int) (word string, wordStart int, completion string) {
 		word, wordStart = wordAtCursor(text, pos)
@@ -159,6 +333,27 @@ func (app *App) openSQL(sql string) {
 
 	editor.SetChangedFunc(updateHint)
 
+	// ── Templates panel input capture ─────────────────────────────────────
+	templatesTable.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEnter:
+			row, _ := templatesTable.GetSelection()
+			idx := row - 1 // row 0 is the title header
+			if idx >= 0 && idx < len(tplItems) && !tplItems[idx].isHeader && tplItems[idx].sql != "" {
+				editor.SetText(tplItems[idx].sql, true)
+				updateHint()
+			}
+			app.tv.SetFocus(editor)
+			app.setTooltip(hotkeysSQL)
+			return nil
+		case tcell.KeyEscape:
+			app.tv.SetFocus(editor)
+			app.setTooltip(hotkeysSQL)
+			return nil
+		}
+		return event
+	})
+
 	// ── History panel input capture ────────────────────────────────────────
 	historyTable.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
@@ -195,13 +390,23 @@ func (app *App) openSQL(sql string) {
 			return nil
 		case event.Key() == tcell.KeyEscape:
 			app.pages.RemovePage(pageSQLEditor)
-			app.switchPage(app.currentContentPage())
+			dest := app.currentContentPage()
+			app.switchPage(dest)
+			if dest == pageTableList {
+				app.setTooltip(hotkeysTableList)
+			} else {
+				app.setTooltip(hotkeysData)
+			}
 			return nil
 		case event.Key() == tcell.KeyCtrlR:
 			if len(app.sqlHistory) > 0 {
 				app.tv.SetFocus(historyTable)
 				app.setTooltip(hotkeysHistory)
 			}
+			return nil
+		case event.Key() == tcell.KeyCtrlT:
+			app.tv.SetFocus(templatesTable)
+			app.setTooltip(hotkeysTemplates)
 			return nil
 		case event.Key() == tcell.KeyCtrlL:
 			editor.SetText("", false)
