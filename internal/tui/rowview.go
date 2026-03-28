@@ -54,17 +54,13 @@ func (app *App) showRowView() {
 		SetFixed(1, 0)
 	t.SetBackgroundColor(tcell.ColorDefault)
 	t.SetBordersColor(colBorder)
-	t.SetSelectedStyle(
-		tcell.StyleDefault.
-			Background(colSelected).
-			Foreground(colSelectedFg),
-	)
+	t.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 
 	// Header row
 	for col, label := range []string{"Column", "Value"} {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}

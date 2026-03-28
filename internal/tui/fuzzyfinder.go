@@ -31,16 +31,14 @@ func (app *App) showFuzzy() {
 	fuzzyInput := tview.NewInputField().
 		SetLabel(" / ").
 		SetLabelColor(colPageTitle).
-		SetFieldBackgroundColor(colTooltip).
-		SetFieldTextColor(tcell.ColorWhite)
-	fuzzyInput.SetBackgroundColor(colColHeader)
+		SetFieldBackgroundColor(tcell.ColorDefault).
+		SetFieldTextColor(tcell.ColorDefault)
+	fuzzyInput.SetBackgroundColor(tcell.ColorDefault)
 
 	// ── Results table ────────────────────────────────────────────────────
 	fuzzyTable := tview.NewTable().SetSelectable(true, false)
 	fuzzyTable.SetBackgroundColor(tcell.ColorDefault)
-	fuzzyTable.SetSelectedStyle(tcell.StyleDefault.
-		Background(colSelected).
-		Foreground(colSelectedFg))
+	fuzzyTable.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 
 	// Pre-load all schema+table pairs once.
 	var allItems []fuzzyItem

@@ -36,7 +36,7 @@ func (app *App) showSchema() {
 			SetDynamicColors(true).
 			SetWordWrap(false).
 			SetWrap(false)
-		app.schemaTabBar.SetBackgroundColor(colColHeader)
+		app.schemaTabBar.SetBackgroundColor(tcell.ColorDefault)
 
 		newSchemaTable := func() *tview.Table {
 			t := tview.NewTable().
@@ -44,9 +44,7 @@ func (app *App) showSchema() {
 				SetSelectable(true, false).
 				SetFixed(1, 0)
 			t.SetBackgroundColor(tcell.ColorDefault)
-			t.SetSelectedStyle(tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg))
+			t.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 			return t
 		}
 
@@ -112,7 +110,7 @@ func (app *App) loadSchemaColsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}
@@ -164,7 +162,7 @@ func (app *App) loadSchemaIdxsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}
@@ -222,7 +220,7 @@ func (app *App) loadSchemaConsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}

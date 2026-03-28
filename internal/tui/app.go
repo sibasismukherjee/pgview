@@ -190,25 +190,25 @@ func (app *App) buildLayout() {
 		SetTextAlign(tview.AlignLeft).
 		SetWordWrap(false).
 		SetWrap(false)
-	app.connPanel.SetBackgroundColor(colTooltip)
+	app.connPanel.SetBackgroundColor(tcell.ColorDefault)
 	app.connPanel.SetTextColor(colTooltipFg)
 
-	// Middle column — hotkeys for the current view (editor dark, flex).
+	// Middle column — hotkeys for the current view (transparent, flex).
 	app.hintBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
 		SetWordWrap(false).
 		SetWrap(false)
-	app.hintBar.SetBackgroundColor(colHeader)
+	app.hintBar.SetBackgroundColor(tcell.ColorDefault)
 	app.hintBar.SetTextColor(colTooltipFg)
 
-	// Right column — page title + table stats (deep navy, fixed 44 chars).
+	// Right column — page title + table stats (transparent, fixed 44 chars).
 	app.infoBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
 		SetWordWrap(false).
 		SetWrap(false)
-	app.infoBar.SetBackgroundColor(colInfoBg)
+	app.infoBar.SetBackgroundColor(tcell.ColorDefault)
 	app.infoBar.SetTextColor(colInfoFg)
 
 	headerBar := tview.NewFlex().
@@ -220,14 +220,14 @@ func (app *App) buildLayout() {
 	app.footer = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
-	app.footer.SetBackgroundColor(colFooter)
+	app.footer.SetBackgroundColor(tcell.ColorDefault)
 	app.footer.SetTextColor(colFooterFg)
 
 	app.cmdBar = tview.NewInputField().
-		SetFieldBackgroundColor(colTooltip).
-		SetFieldTextColor(tcell.ColorWhite).
+		SetFieldBackgroundColor(tcell.ColorDefault).
+		SetFieldTextColor(tcell.ColorDefault).
 		SetLabelColor(colPageTitle)
-	app.cmdBar.SetBackgroundColor(colTooltip)
+	app.cmdBar.SetBackgroundColor(tcell.ColorDefault)
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).

@@ -170,12 +170,8 @@ func (app *App) openSQL(sql string) {
 	templatesTable := tview.NewTable().
 		SetSelectable(true, false).
 		SetFixed(1, 0)
-	templatesTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
-	templatesTable.SetSelectedStyle(
-		tcell.StyleDefault.
-			Background(colSelected).
-			Foreground(colSelectedFg),
-	)
+	templatesTable.SetBackgroundColor(tcell.ColorDefault)
+	templatesTable.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 	templatesTable.SetCell(0, 0,
 		tview.NewTableCell(" Templates").
 			SetTextColor(colPageTitle).
@@ -189,12 +185,8 @@ func (app *App) openSQL(sql string) {
 	historyTable := tview.NewTable().
 		SetSelectable(true, false).
 		SetFixed(1, 0)
-	historyTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
-	historyTable.SetSelectedStyle(
-		tcell.StyleDefault.
-			Background(colSelected).
-			Foreground(colSelectedFg),
-	)
+	historyTable.SetBackgroundColor(tcell.ColorDefault)
+	historyTable.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 
 	historyTable.SetCell(0, 0,
 		tview.NewTableCell(" History").
@@ -667,11 +659,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageData, app.dataWidget, true, false)
 	}
 
@@ -690,7 +678,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 	for col, name := range result.Columns {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", name)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)

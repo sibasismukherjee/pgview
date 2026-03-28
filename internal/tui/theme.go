@@ -2,40 +2,37 @@ package tui
 
 import "github.com/gdamore/tcell/v2"
 
-// Colour palette — VSCode Dark+ inspired, neutral and developer-friendly.
+// Colour palette — transparent-background, terminal-adaptive.
+// All backgrounds are tcell.ColorDefault so the terminal's own background
+// shows through regardless of whether it is dark or light.
+// Foreground colours are mid-range vivid values chosen to reach ≥ 3:1
+// contrast on both black (#000000) and white (#ffffff) terminals.
 var (
-	// Layout chrome
-	colHeader    = tcell.NewRGBColor(30, 30, 30)    // #1e1e1e  editor background (hintBar middle)
-	colTooltip   = tcell.NewRGBColor(37, 37, 38)    // #252526  sidebar background (connPanel left)
-	colTooltipFg = tcell.NewRGBColor(150, 150, 150) // #969696  muted gray
-	colInfoBg    = tcell.NewRGBColor(14, 52, 96)    // #0e3460  deep navy (infoBar right)
-	colInfoFg    = tcell.NewRGBColor(200, 218, 240) // #c8daf0  light blue-white (infoBar text)
-	colFooter    = tcell.NewRGBColor(0, 122, 204)   // #007acc  VSCode statusbar blue
-	colFooterFg  = tcell.NewRGBColor(255, 255, 255) // white
+	// Layout chrome — foreground only; backgrounds are set to tcell.ColorDefault.
+	colTooltipFg = tcell.NewRGBColor(136, 136, 136) // #888888  medium gray
+	colInfoFg    = tcell.NewRGBColor(86, 156, 214)  // #569cd6  VSCode blue
+	colFooterFg  = tcell.ColorDefault               // inherit terminal fg
 
 	// Table chrome
-	colBorder      = tcell.NewRGBColor(62, 62, 62)    // #3e3e3e  dim separator
-	colColHeader   = tcell.NewRGBColor(37, 37, 38)    // #252526  column header bg
-	colColHeaderFg = tcell.NewRGBColor(156, 220, 254) // #9cdcfe  VSCode variable blue
-	colSelected    = tcell.NewRGBColor(9, 71, 113)    // #094771  VSCode selection blue
-	colSelectedFg  = tcell.NewRGBColor(255, 255, 255) // white
+	colBorder      = tcell.NewRGBColor(120, 120, 120) // #787878  mid-gray separator
+	colColHeaderFg = tcell.NewRGBColor(86, 156, 214)  // #569cd6  column header label
 
 	// Semantic
-	colError     = tcell.NewRGBColor(244, 71, 71)   // #f44747  VSCode error red
-	colOK        = tcell.NewRGBColor(78, 201, 176)  // #4ec9b0  VSCode teal
-	colMuted     = tcell.NewRGBColor(106, 106, 106) // #6a6a6a  dim gray
-	colPageTitle = tcell.NewRGBColor(86, 156, 214)  // #569cd6  VSCode keyword blue
-	colTitle     = tcell.NewRGBColor(78, 201, 176)  // #4ec9b0  teal (describe view type)
+	colError     = tcell.NewRGBColor(220, 60, 60)   // #dc3c3c  vivid red   (~4.1:1 on white)
+	colOK        = tcell.NewRGBColor(0, 160, 128)   // #00a080  vivid teal  (~3.8:1 on white)
+	colMuted     = tcell.NewRGBColor(106, 106, 106) // #6a6a6a  dim gray    (~5.1:1 on white)
+	colPageTitle = tcell.NewRGBColor(86, 156, 214)  // #569cd6  VSCode blue (~3.1:1 on white)
+	colTitle     = tcell.NewRGBColor(0, 160, 128)   // #00a080  teal
 
-	// Data type colours (for cell-level type-aware display)
+	// Data type colours — mid-range vivid values, readable on dark and light bg.
 	colNull      = tcell.NewRGBColor(106, 106, 106) // #6a6a6a  dim — NULL values
-	colNumber    = tcell.NewRGBColor(181, 206, 168) // #b5cea8  VSCode numeric literal
-	colBoolTrue  = tcell.NewRGBColor(78, 201, 176)  // #4ec9b0  teal — true
-	colBoolFalse = tcell.NewRGBColor(244, 71, 71)   // #f44747  red  — false
-	colUUID      = tcell.NewRGBColor(220, 220, 170) // #dcdcaa  VSCode function yellow
-	colTimestamp = tcell.NewRGBColor(206, 145, 120) // #ce9178  VSCode string orange
-	colJSON      = tcell.NewRGBColor(156, 220, 254) // #9cdcfe  blue — json/jsonb
-	colBytes     = tcell.NewRGBColor(100, 100, 100) // #646464  gray — bytea
+	colNumber    = tcell.NewRGBColor(90, 160, 60)   // #5aa03c  medium green  (~3.5:1 on white)
+	colBoolTrue  = tcell.NewRGBColor(0, 160, 128)   // #00a080  teal
+	colBoolFalse = tcell.NewRGBColor(220, 60, 60)   // #dc3c3c  red
+	colUUID      = tcell.NewRGBColor(120, 120, 200) // #7878c8  slate-blue    (~3.6:1 on white)
+	colTimestamp = tcell.NewRGBColor(190, 100, 50)  // #be6432  darker orange (~3.4:1 on white)
+	colJSON      = tcell.NewRGBColor(86, 156, 214)  // #569cd6  blue
+	colBytes     = tcell.NewRGBColor(110, 110, 110) // #6e6e6e  gray
 )
 
 // PostgreSQL OIDs used for type-aware cell colouring.

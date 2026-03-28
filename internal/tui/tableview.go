@@ -21,11 +21,7 @@ func (app *App) showTableList() {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.tableListWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.tableListWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.tableListWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageTableList, app.tableListWidget, true, false)
 	}
 
@@ -94,7 +90,7 @@ func (app *App) loadTableList() {
 	for col, label := range []string{"Schema", "Table", "Type"} {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)

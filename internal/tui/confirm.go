@@ -116,35 +116,32 @@ func (app *App) showDMLConfirm(title, sqlText, confirmWord string, estimatedRows
 		rowsText = "[#6a6a6a]unknown[-]"
 	}
 
-	dark := tcell.NewRGBColor(30, 30, 30)
-	sidebar := tcell.NewRGBColor(37, 37, 38)
-
 	newLine := func(text string) *tview.TextView {
 		tv := tview.NewTextView().SetDynamicColors(true).SetText(text)
-		tv.SetBackgroundColor(dark)
+		tv.SetBackgroundColor(tcell.ColorDefault)
 		return tv
 	}
 
 	input := tview.NewInputField().
 		SetLabel("  ▏").
 		SetFieldWidth(len(confirmWord) + 6).
-		SetFieldBackgroundColor(sidebar).
-		SetFieldTextColor(tcell.ColorWhite).
+		SetFieldBackgroundColor(tcell.ColorDefault).
+		SetFieldTextColor(tcell.ColorDefault).
 		SetLabelColor(colPageTitle)
-	input.SetBackgroundColor(dark)
+	input.SetBackgroundColor(tcell.ColorDefault)
 
 	box := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(newLine(""), 1, 0, false).
-		AddItem(newLine(fmt.Sprintf("  [#f44747::b]⚠  %s[-]", title)), 1, 0, false).
+		AddItem(newLine(fmt.Sprintf("  [#dc3c3c::b]⚠  %s[-]", title)), 1, 0, false).
 		AddItem(newLine(""), 1, 0, false).
-		AddItem(newLine(fmt.Sprintf("  [#dcdcaa]%s[-]", tview.Escape(preview))), 1, 0, false).
+		AddItem(newLine(fmt.Sprintf("  [#569cd6]%s[-]", tview.Escape(preview))), 1, 0, false).
 		AddItem(newLine(""), 1, 0, false).
 		AddItem(newLine(fmt.Sprintf("  Estimated rows affected:  %s", rowsText)), 1, 0, false).
 		AddItem(newLine(""), 1, 0, false).
 		AddItem(newLine(fmt.Sprintf("  Type [#569cd6::b]%s[-] and press Enter to proceed, or Esc to abort", confirmWord)), 1, 0, false).
 		AddItem(input, 1, 0, true).
 		AddItem(newLine(""), 1, 0, false)
-	box.SetBackgroundColor(dark)
+	box.SetBackgroundColor(tcell.ColorDefault)
 
 	// Centre the box; nil items are transparent spacers in tview.
 	modal := tview.NewFlex().

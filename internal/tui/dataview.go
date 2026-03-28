@@ -19,11 +19,7 @@ func (app *App) showData() {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageData, app.dataWidget, true, false)
 	}
 
@@ -162,7 +158,7 @@ func (app *App) loadData() {
 	for col, name := range result.Columns {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", name)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)
