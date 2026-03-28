@@ -176,4 +176,3 @@ func (app *App) showDMLConfirm(title, sqlText, confirmWord string, estimatedRows
 		return event
 	})
 }
-

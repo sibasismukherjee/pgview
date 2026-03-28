@@ -12,7 +12,6 @@ import (
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
-
 const (
 	pageTableList = "tables"
 	pageData      = "data"
@@ -68,11 +67,11 @@ type App struct {
 	dataRowCount     int // last rendered row count from loadData
 
 	// Audit / restore logging (issues #28 #29)
-	auditMode            bool
-	auditLogger          *audit.Logger
-	restoreLogger        *audit.RestoreLogger
-	version              string
-	dmlConfirmThreshold  int // 0 = disabled, -1 = always confirm, default 50
+	auditMode           bool
+	auditLogger         *audit.Logger
+	restoreLogger       *audit.RestoreLogger
+	version             string
+	dmlConfirmThreshold int // 0 = disabled, -1 = always confirm, default 50
 }
 
 // Run initialises and starts the TUI. Blocks until the user quits.

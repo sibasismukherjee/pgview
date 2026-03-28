@@ -431,14 +431,8 @@ func (app *App) openSQL(sql string) {
 	})
 }
 
-// runSQL is the public entry point for executing SQL from non-editor code paths
-// (e.g. data reload, stats). It bypasses the DML guard and audit pre-capture.
-func (app *App) runSQL(query string) {
-	app.doRunSQL(query, "")
-}
-
-// doRunSQL is the universal post-guard executor called by executeWithGuards (confirm.go)
-// and runSQL. kind is "UPDATE", "DELETE", "INSERT", "TRUNCATE", or "" for reads.
+// doRunSQL is the universal post-guard executor called by executeWithGuards (confirm.go).
+// kind is "UPDATE", "DELETE", "INSERT", "TRUNCATE", or "" for reads.
 func (app *App) doRunSQL(query, kind string) {
 	if query == "" {
 		app.switchPage(app.currentContentPage())
