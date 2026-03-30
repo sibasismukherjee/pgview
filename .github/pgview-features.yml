@@ -1,0 +1,58 @@
+# pgview feature cards — single source of truth for the portfolio feature grid.
+# Each entry becomes one <div class="feature-card"> on pgview.html.
+# Fields:
+#   name        required  card heading
+#   description required  1-2 sentence body, plain text (HTML-escaped by the script)
+#   key         optional  keyboard shortcut rendered inside <kbd>…</kbd>
+
+features:
+  - name: "k9s-style TUI"
+    description: "Navigable table list, data view, schema browser, and SQL editor — same interaction model as the Kubernetes CLI."
+
+  - name: "Connect Anywhere"
+    description: "host:port, pgBouncer, RDS Proxy, SSH tunnel, or a full postgres:// DSN. PgBouncer simple-query protocol supported."
+
+  - name: "NULL vs Empty String"
+    description: "SQL NULL renders as ∅ and empty string as '' in all views — visually distinct and never ambiguous."
+
+  - name: "Smart Filter DSL"
+    description: "Filter rows with col=val, col=%sub%, comparisons, or free text. Array and JSONB columns match element-wise."
+    key: "/"
+
+  - name: "SQL Editor"
+    description: "Full-screen editor with schema-aware Tab completion — type-matched operators, table names in FROM/JOIN, column names in SELECT/WHERE."
+    key: "Ctrl+E"
+
+  - name: "SQL Templates"
+    description: "Side panel of pre-filled Query, Write, and DDL templates built from the current table's real column and PK names."
+    key: "Ctrl+T"
+
+  - name: "Row Viewer & Editor"
+    description: "Full-screen two-column view of any selected row. Edit fields in-place and commit with a single keystroke."
+    key: "f"
+
+  - name: "Audit Logging"
+    description: "Records every DML with a companion restore SQL file so any session can be reversed. Amber/red badge in the header; DML confirmation prompt above threshold."
+    key: "Ctrl+A"
+
+  - name: "Fuzzy Table Search"
+    description: "Full-screen fuzzy finder across all schemas. Matched characters highlighted in blue; ranked by consecutive runs and word boundaries."
+    key: "/"
+
+  - name: "Schema Browser"
+    description: "4-tab panel: Columns, Indexes, Constraints, and a reconstructed DDL view. Navigate with 1–4 or Tab."
+    key: "d"
+
+  - name: "Export to CSV / JSON"
+    description: "Export the full result set — no page limit — to a file. Interactive format and path prompt; NULL → empty string in CSV, null in JSON."
+    key: "E"
+
+  - name: "Query History"
+    description: "Navigable panel of the last 50 queries, most-recent-first. Press Enter to reload any entry into the editor."
+    key: "Ctrl+R"
+
+  - name: "Dynamic Table Stats"
+    description: "Estimated row count, primary key, and index count appear automatically in the header as you scroll the table list — no extra keystroke needed."
+
+  - name: "Mouse & Touchpad"
+    description: "Vertical scroll moves row selection everywhere. Horizontal two-finger swipe pans wide column sets without arrow keys."

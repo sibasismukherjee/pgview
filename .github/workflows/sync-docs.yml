@@ -8,6 +8,7 @@ on:
       - 'CHANGELOG.md'
       - 'main.go'
       - '.github/wiki/**'
+      - '.github/pgview-features.yml'
   workflow_dispatch:
     inputs:
       reason:
