@@ -9,6 +9,7 @@ on:
       - 'main.go'
       - '.github/wiki/**'
       - '.github/pgview-features.yml'
+      - 'assets/demo.gif'
   workflow_dispatch:
     inputs:
       reason:
