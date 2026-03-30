@@ -38,8 +38,22 @@ func (app *App) showRowView() {
 	colCount := app.dataWidget.GetColumnCount()
 	fields := make([]rowField, 0, colCount)
 	for col := 0; col < colCount; col++ {
-		colName := strings.TrimSpace(app.dataWidget.GetCell(0, col).Text)
-		val := strings.TrimSpace(app.dataWidget.GetCell(row, col).Text)
+		var colName string
+		if col < len(app.tableColumns) {
+			colName = app.tableColumns[col].Name
+		} else {
+			colName = strings.TrimSpace(app.dataWidget.GetCell(0, col).Text)
+		}
+		// Read the raw DB value from the cell reference (set by typedCell callers).
+		// This preserves the distinction between SQL NULL ("NULL") and empty string
+		// ("") regardless of how the cell is rendered (∅ vs '').
+		var val string
+		cell := app.dataWidget.GetCell(row, col)
+		if ref := cell.GetReference(); ref != nil {
+			val = ref.(string)
+		} else {
+			val = strings.TrimSpace(cell.Text)
+		}
 		var oid uint32
 		if col < len(app.tableColumns) {
 			oid = app.tableColumns[col].OID
@@ -93,7 +107,16 @@ func (app *App) showRowView() {
 				colCell = tview.NewTableCell(" " + f.col).
 					SetTextColor(colOK).
 					SetExpansion(1)
-				valCell = tview.NewTableCell(" " + f.newVal + "  [#6a6a6a](edited)[-]").
+				var displayVal string
+				switch {
+				case strings.EqualFold(f.newVal, "NULL"):
+					displayVal = "∅"
+				case f.newVal == "":
+					displayVal = "''"
+				default:
+					displayVal = f.newVal
+				}
+				valCell = tview.NewTableCell(" " + displayVal + "  [#6a6a6a](edited)[-]").
 					SetTextColor(colOK).
 					SetExpansion(2)
 			} else {
@@ -226,6 +249,15 @@ func (app *App) showRowView() {
 			result, err := app.client.Query(sql)
 			if err != nil {
 				app.setFooter(fmt.Sprintf("[#f44747]Error: %v[-]", err))
+				app.setLastDML("UPDATE", sql, "", err)
+				app.logAudit(audit.Record{
+					Type:   audit.StmtUpdate,
+					Schema: parts[0],
+					Table:  parts[1],
+					SQL:    sql,
+					Rows:   0,
+					Err:    err,
+				})
 				return nil
 			}
 
@@ -264,6 +296,7 @@ func (app *App) showRowView() {
 			if result != nil && result.Tag != "" {
 				tag = result.Tag
 			}
+			app.setLastDML("UPDATE", sql, tag, nil)
 			app.setFooter(fmt.Sprintf("[#4ec9b0]Saved: %s[-]", tag))
 			app.loadData() // refresh the data view in background
 			return nil

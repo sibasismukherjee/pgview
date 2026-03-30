@@ -4,6 +4,57 @@ All notable changes to pgview are documented here.
 
 ---
 
+## [v0.5.0] — 2026-03-30
+
+### Added
+
+**NULL vs empty string visual distinction** (closes [#18](https://github.com/sibasismukherjee/pgview/issues/18))
+- NULL cells now render as `∅` in muted/dim style across all views (data browse, SQL results, row viewer)
+- Empty string cells render as `''` in the same muted style — visually distinct from both NULL and non-empty values
+- Row viewer reflects this consistently: unmodified fields show `∅`/`''` via `typedCell`; modified fields display `∅` or `''` in the `(edited)` marker rather than a blank
+- Raw DB values stored as cell references (`SetReference`) so the row editor always sees `"NULL"` vs `""` regardless of the rendered glyph — editing, save logic, and restore SQL are unaffected
+
+**Audit logging**
+- `Ctrl+A` toggles audit mode; a `● AUDIT` badge appears in the header (amber while no DML has run, red after the first DML)
+- Every statement (SELECT, DML, filter, stats) is written to a JSON-L audit log in `~/.pgview/sessions/` (configurable)
+- A companion restore SQL file is written alongside the audit log with the inverse DML (UPDATEs become the original values, DELETEs become INSERTs, INSERTs become DELETE keyed on the RETURNING PK) so the session can be rolled back with `tac restore_*.sql | grep -v '^--' | psql`
+- DML confirmation prompt fires before any `UPDATE`, `DELETE`, or `TRUNCATE` that would affect more than the configured threshold (default 50 rows); the threshold is checked via `COUNT(*)` using the same WHERE clause
+- `-audit` flag and `PGVIEW_AUDIT=1` env var pre-enable audit mode at startup
+- Ctrl+A prompts for the log directory (pre-filled with the resolved default) before enabling; accepts `Enter` to confirm or `Esc` to cancel
+
+**Configurable audit directory**
+- Log directory resolved with priority: `config.yml` `audit_dir:` key < `PGVIEW_AUDIT_DIR` env < `-audit-dir` CLI flag
+- `~` is expanded in `config.yml`; inline YAML comments are stripped
+- `~/.pgview/config.yml` also controls `dml_confirm_threshold` (0 = disable, -1 = always confirm, >0 = threshold)
+
+**Audit exit summary**
+- On quit, pgview prints a formatted ANSI banner to stdout with the audit log path, restore SQL path, row count of DML statements, and the `tac … | psql` undo command
+
+**Persistent DML history bar**
+- A dedicated strip above the footer always shows the last executed DML statement: type (INSERT / UPDATE / DELETE / TRUNCATE) colour-coded, abbreviated SQL, affected row count, and a timestamp
+- Visible across all views; survives page navigation
+
+**Dynamic table stats**
+- Table stats (estimated row count, PK, index count) now appear automatically in the info bar as the cursor scrolls through the table list — no `i` key needed
+- Stats are fetched in a background goroutine; the info bar updates only if the cursor is still on the same table when the result arrives, preventing stale updates on fast scrolling
+
+**pg/view header logo**
+- The top-left connection panel now shows a compact box-drawing `pg view` logo (`┌─╮╭─╮ / ├─╯│ ╰╮ view / ╵  └──╯`) with blue strokes for "p" and teal for "g"
+- Header layout changed: logo panel is fixed 32 chars; hint bar is flex (×3); info bar is flex (×2) — the Ctrl+A audit hotkey is no longer hidden on typical terminal widths
+
+### Fixed
+
+- `UPDATE` statement built by the row editor no longer uses tview markup-contaminated column names (e.g. `"[::b]id[::-]"`) — column names are read from `app.tableColumns`, not from rendered cell text
+- Restore pre-capture (`buildPreCaptureSelect`) now correctly detects `WHERE` clauses in multi-line SQL editor queries (fixes `\n WHERE` being missed by `strings.LastIndex`)
+
+### Changed
+
+- `i` key removed from table list and data view; table stats are shown automatically via scroll (see above)
+- Table list hotkeys split into two rows so all bindings (including `Ctrl+A`) fit on typical terminal widths
+- `i` key in table list no longer mutates `app.curTable`
+
+---
+
 ## [v0.4.1] — 2026-03-27
 
 ### Added
@@ -155,6 +206,7 @@ All notable changes to pgview are documented here.
 
 ---
 
+[v0.5.0]: https://github.com/sibasismukherjee/pgview/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/sibasismukherjee/pgview/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/sibasismukherjee/pgview/compare/v0.2.1...v0.3.0

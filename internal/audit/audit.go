@@ -54,11 +54,17 @@ type Logger struct {
 	dmlCount  int
 }
 
-// NewLogger creates a new audit log file in ~/.pgview/sessions/ and writes
-// the session header. dbName, user, host, and version are embedded in the header.
-func NewLogger(dbName, user, host, version string) (*Logger, error) {
-	dir, err := sessionsDir()
-	if err != nil {
+// NewLogger creates a new audit log file and writes the session header.
+// dir is the directory to write into; if empty, ~/.pgview/sessions/ is used.
+// dbName, user, host, and version are embedded in the header.
+func NewLogger(dbName, user, host, version, dir string) (*Logger, error) {
+	var err error
+	if dir == "" {
+		dir, err = sessionsDir()
+		if err != nil {
+			return nil, err
+		}
+	} else if err = os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
 	id := newSessionID()

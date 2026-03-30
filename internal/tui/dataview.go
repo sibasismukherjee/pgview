@@ -71,10 +71,6 @@ func (app *App) showData() {
 		case event.Rune() == 'E':
 			app.showExportPrompt()
 			return nil
-		case event.Rune() == 'i':
-			app.statsCachedTable = "" // force refresh
-			app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", app.dataRowCount, app.statsForCurrentTable()))
-			return nil
 		}
 		return app.globalKeys(event)
 	})
@@ -165,6 +161,8 @@ func (app *App) loadData() {
 	}
 
 	// Render rows with type-aware colours.
+	// SetReference stores the raw DB value so the row viewer can read it
+	// without being affected by the rendered display text (∅ for NULL, '' for "").
 	row := 1
 	for _, r := range result.Rows {
 		for col, v := range r {
@@ -172,7 +170,7 @@ func (app *App) loadData() {
 			if col < len(result.ColumnOIDs) {
 				oid = result.ColumnOIDs[col]
 			}
-			t.SetCell(row, col, typedCell(v, oid))
+			t.SetCell(row, col, typedCell(v, oid).SetReference(v))
 		}
 		row++
 	}

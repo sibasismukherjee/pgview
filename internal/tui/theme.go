@@ -60,14 +60,14 @@ const (
 const (
 	// Tables view
 	hotkeysTableList = "\n" +
-		"  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] schema  [#569cd6]<i>[-] stats" +
-		"  [#6a6a6a]│[-]  [#569cd6]</>[-] search  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<Ctrl+A>[-] audit  [#569cd6]<q>[-] quit"
+		"  [#569cd6]<↵>[-] view  [#569cd6]<d>[-] schema  [#6a6a6a]│[-]  [#569cd6]</>[-] search  [#569cd6]<r>[-] refresh\n" +
+		"  [#569cd6]<e>[-] SQL  [#569cd6]<Ctrl+A>[-] audit  [#569cd6]<q>[-] quit"
 
 	// Data view — row 1: navigation/pagination/filter; row 2: view/actions
 	hotkeysData = "\n" +
 		"  [#569cd6]<Esc>[-] back  [#569cd6]<g>[-] top  [#569cd6]<G>[-] bottom" +
 		"  [#6a6a6a]│[-]  [#569cd6]<n>/<p>[-] page  [#6a6a6a]│[-]  [#569cd6]</>[-] filter\n" +
-		"  [#569cd6]<d>[-] schema  [#569cd6]<f>[-] row view/edit  [#569cd6]<E>[-] export  [#569cd6]<i>[-] stats" +
+		"  [#569cd6]<d>[-] schema  [#569cd6]<f>[-] row view/edit  [#569cd6]<E>[-] export" +
 		"  [#6a6a6a]│[-]  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<Ctrl+A>[-] audit"
 
 	// Fuzzy search overlay

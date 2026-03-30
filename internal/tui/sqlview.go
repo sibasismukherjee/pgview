@@ -556,6 +556,15 @@ func (app *App) doRunSQL(query, kind string) {
 
 	app.showSQLResult(result, err)
 
+	// Persist DML summary in the lastDMLBar for all views.
+	if kind != "" {
+		tag := ""
+		if result != nil {
+			tag = result.Tag
+		}
+		app.setLastDML(kind, query, tag, err)
+	}
+
 	// Show a status-bar warning when pre-capture was skipped (too many rows or
 	// complex statement) so the operator knows restore SQL is incomplete.
 	if captureSkipped && app.auditMode {
@@ -611,18 +620,24 @@ func (app *App) preCaptureRows(query, kind string) (rows []map[string]string, co
 var (
 	reUpdateTable = regexp.MustCompile(`(?i)^UPDATE\s+(\S+)\s+SET\s`)
 	reDeleteTable = regexp.MustCompile(`(?i)^DELETE\s+FROM\s+(\S+)\s`)
+	// reWhere matches any whitespace before/after WHERE so multi-line queries
+	// (newlines from the editor or templates) are handled correctly.
+	reWhere = regexp.MustCompile(`(?i)\s+WHERE\s+`)
 )
 
 func buildPreCaptureSelect(kind, query string) (string, bool) {
 	q := strings.TrimSpace(query)
 	upper := strings.ToUpper(q)
 
-	// Find WHERE position (last occurrence to skip subquery WHEREs in SET).
-	whereIdx := strings.LastIndex(upper, " WHERE ")
-	if whereIdx < 0 {
+	// Find the last WHERE keyword, tolerating spaces, tabs, and newlines around
+	// it. strings.LastIndex(upper, " WHERE ") misses "\nWHERE " from multi-line
+	// editor input, causing the restore capture to be silently skipped.
+	locs := reWhere.FindAllStringIndex(upper, -1)
+	if len(locs) == 0 {
 		return "", false
 	}
-	whereClause := strings.TrimSpace(q[whereIdx+7:])
+	last := locs[len(locs)-1]
+	whereClause := strings.TrimSpace(q[last[1]:])
 
 	var table string
 	switch kind {
@@ -683,7 +698,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 			if col < len(result.ColumnOIDs) {
 				oid = result.ColumnOIDs[col]
 			}
-			t.SetCell(row+1, col, typedCell(v, oid))
+			t.SetCell(row+1, col, typedCell(v, oid).SetReference(v))
 		}
 	}
 	if len(result.Rows) == 0 {

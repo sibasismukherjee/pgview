@@ -78,6 +78,21 @@ func TestBuildPreCaptureSelect(t *testing.T) {
 			`INSERT INTO t (a) VALUES (1)`,
 			"", false,
 		},
+		{
+			// Multi-line query from editor: newline before WHERE was causing
+			// strings.LastIndex(upper, " WHERE ") to miss the keyword.
+			"UPDATE",
+			"UPDATE order_items\nSET \"qty\" = '1'\nWHERE \"id\" = '4'",
+			"SELECT * FROM order_items WHERE \"id\" = '4' LIMIT 1001",
+			true,
+		},
+		{
+			// Newline + tab whitespace around WHERE.
+			"DELETE",
+			"DELETE FROM orders\n\tWHERE\tstatus = 'cancelled'",
+			"SELECT * FROM orders WHERE status = 'cancelled' LIMIT 1001",
+			true,
+		},
 	}
 	for _, tc := range tests {
 		gotSQL, gotOK := buildPreCaptureSelect(tc.kind, tc.query)

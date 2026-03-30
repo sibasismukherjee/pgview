@@ -30,9 +30,15 @@ type RestoreLogger struct {
 
 // NewRestoreLogger creates the restore SQL file paired with an audit session.
 // sessionID must be the same value returned by the companion Logger.SessionID().
-func NewRestoreLogger(dbName, user, host, sessionID string) (*RestoreLogger, error) {
-	dir, err := sessionsDir()
-	if err != nil {
+// dir is the directory to write into; if empty, ~/.pgview/sessions/ is used.
+func NewRestoreLogger(dbName, user, host, sessionID, dir string) (*RestoreLogger, error) {
+	var err error
+	if dir == "" {
+		dir, err = sessionsDir()
+		if err != nil {
+			return nil, err
+		}
+	} else if err = os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()

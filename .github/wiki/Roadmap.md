@@ -9,6 +9,12 @@ The full project board with timelines is at:
 
 | Version | Feature |
 |---------|---------|
+| v0.5.0 | NULL vs empty string visual distinction (`∅` / `''`) across all views ([#18](https://github.com/sibasismukherjee/pgview/issues/18)) |
+| v0.5.0 | Audit logging with DML confirmation and restore SQL generation |
+| v0.5.0 | Configurable audit directory (flag / env / config.yml) |
+| v0.5.0 | Dynamic table stats on scroll (info bar auto-updates) |
+| v0.5.0 | Persistent DML history bar (last executed DML always visible) |
+| v0.5.0 | pg/view box-drawing logo + proportional header layout |
 | v0.4.1 | Schema browser (Columns, Indexes, Constraints, DDL tabs) |
 | v0.4.1 | Fuzzy table search across all schemas |
 | v0.4.1 | Export to CSV / JSON |
@@ -26,7 +32,6 @@ The full project board with timelines is at:
 - **Schema browser: column comments** — show `COMMENT ON COLUMN` in the Columns tab ([#24](https://github.com/sibasismukherjee/pgview/issues/24))
 - **Schema browser: FK details** — show target table and column in the Constraints tab ([#25](https://github.com/sibasismukherjee/pgview/issues/25))
 - **Export: tab-complete file path** — filesystem completion in the export path prompt ([#26](https://github.com/sibasismukherjee/pgview/issues/26))
-- **NULL vs empty string distinction** — visual difference in the data grid ([#18](https://github.com/sibasismukherjee/pgview/issues/18))
 - **Copy cell / row to clipboard** ([#14](https://github.com/sibasismukherjee/pgview/issues/14))
 
 ---

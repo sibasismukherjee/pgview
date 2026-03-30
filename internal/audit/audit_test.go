@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewLogger(t *testing.T) {
-	l, err := NewLogger("testdb", "user", "localhost:5432", "0.4.1")
+	l, err := NewLogger("testdb", "user", "localhost:5432", "0.4.1", "")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestLoggerLog(t *testing.T) {
-	l, err := NewLogger("testdb", "user", "localhost:5432", "0.4.1")
+	l, err := NewLogger("testdb", "user", "localhost:5432", "0.4.1", "")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestLoggerLog(t *testing.T) {
 }
 
 func TestLoggerClose(t *testing.T) {
-	l, err := NewLogger("closetest", "user", "localhost:5432", "0.4.1")
+	l, err := NewLogger("closetest", "user", "localhost:5432", "0.4.1", "")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestLoggerClose(t *testing.T) {
 }
 
 func TestNewRestoreLogger(t *testing.T) {
-	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "abcd1234")
+	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "abcd1234", "")
 	if err != nil {
 		t.Fatalf("NewRestoreLogger: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestNewRestoreLogger(t *testing.T) {
 }
 
 func TestRestoreLoggerLogUpdate(t *testing.T) {
-	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0001")
+	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0001", "")
 	if err != nil {
 		t.Fatalf("NewRestoreLogger: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestRestoreLoggerLogUpdate(t *testing.T) {
 }
 
 func TestRestoreLoggerLogDelete(t *testing.T) {
-	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0002")
+	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0002", "")
 	if err != nil {
 		t.Fatalf("NewRestoreLogger: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestRestoreLoggerLogDelete(t *testing.T) {
 }
 
 func TestRestoreLoggerLogInsert(t *testing.T) {
-	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0003")
+	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0003", "")
 	if err != nil {
 		t.Fatalf("NewRestoreLogger: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestRestoreLoggerLogInsert(t *testing.T) {
 }
 
 func TestRestoreLoggerLogSkipped(t *testing.T) {
-	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0004")
+	rl, err := NewRestoreLogger("testdb", "user", "localhost:5432", "test0004", "")
 	if err != nil {
 		t.Fatalf("NewRestoreLogger: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestRestoreLoggerLogSkipped(t *testing.T) {
 }
 
 func TestLoggerConcurrentWrites(t *testing.T) {
-	l, err := NewLogger("concdb", "user", "localhost:5432", "0.4.1")
+	l, err := NewLogger("concdb", "user", "localhost:5432", "0.4.1", "")
 	if err != nil {
 		t.Fatalf("NewLogger: %v", err)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/sibasismukherjee/pgview/internal/tui"
 )
 
-var version = "0.4.1"
+var version = "0.5.0"
 
 func main() {
 	proxyURL := flag.String("url", "", "PostgreSQL proxy/connection URL (host:port or postgres://host:port/dbname)")
@@ -25,12 +25,19 @@ func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	dmlConfirm := flag.Int("dml-confirm", -999, "DML confirmation row threshold (0=disable, -1=always; overrides config.yml)")
 	auditFlag := flag.Bool("audit", false, "Start session with audit logging pre-enabled")
+	auditDir := flag.String("audit-dir", "", "Directory for audit and restore log files (overrides config.yml and PGVIEW_AUDIT_DIR)")
 	flag.Parse()
 
-	// Resolve threshold: flag overrides config, config overrides built-in default.
-	threshold := tui.LoadConfig()
+	// Resolve config: config.yml < PGVIEW_AUDIT_DIR env < -audit-dir flag.
+	cfg := tui.LoadConfig()
+	if envDir := os.Getenv("PGVIEW_AUDIT_DIR"); envDir != "" {
+		cfg.AuditDir = envDir
+	}
+	if *auditDir != "" {
+		cfg.AuditDir = *auditDir
+	}
 	if *dmlConfirm != -999 {
-		threshold = *dmlConfirm
+		cfg.DMLConfirmThreshold = *dmlConfirm
 	}
 
 	// Audit mode: -audit flag or PGVIEW_AUDIT=1 env var.
@@ -80,5 +87,5 @@ func main() {
 	}
 	defer client.Close()
 
-	tui.Run(client, version, threshold, auditEnabled)
+	tui.Run(client, version, cfg, auditEnabled)
 }
