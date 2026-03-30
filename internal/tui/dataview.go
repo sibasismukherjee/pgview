@@ -3,9 +3,12 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
 // showData loads and displays paginated rows for app.curTable.
@@ -16,11 +19,7 @@ func (app *App) showData() {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageData, app.dataWidget, true, false)
 	}
 
@@ -72,10 +71,6 @@ func (app *App) showData() {
 		case event.Rune() == 'E':
 			app.showExportPrompt()
 			return nil
-		case event.Rune() == 'i':
-			app.statsCachedTable = "" // force refresh
-			app.setInfoStats(fmt.Sprintf("[#c8daf0]%d rows[-]  %s", app.dataRowCount, app.statsForCurrentTable()))
-			return nil
 		}
 		return app.globalKeys(event)
 	})
@@ -108,7 +103,26 @@ func (app *App) loadData() {
 	}
 	app.lastSQL = sql
 
+	stmtType := audit.StmtSelect
+	if whereClause != "" {
+		stmtType = audit.StmtFilter
+	}
+	start := time.Now()
 	result, err := app.client.Query(sql)
+	dur := time.Since(start)
+	rows := -1
+	if err == nil && result != nil {
+		rows = len(result.Rows)
+	}
+	app.logAudit(audit.Record{
+		Type:     stmtType,
+		Schema:   schema,
+		Table:    table,
+		SQL:      sql,
+		Duration: dur,
+		Rows:     rows,
+		Err:      err,
+	})
 	if err != nil {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("query error: %v", err)))
 		app.setHeader("Data", app.curTable)
@@ -140,13 +154,15 @@ func (app *App) loadData() {
 	for col, name := range result.Columns {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", name)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)
 	}
 
 	// Render rows with type-aware colours.
+	// SetReference stores the raw DB value so the row viewer can read it
+	// without being affected by the rendered display text (∅ for NULL, '' for "").
 	row := 1
 	for _, r := range result.Rows {
 		for col, v := range r {
@@ -154,7 +170,7 @@ func (app *App) loadData() {
 			if col < len(result.ColumnOIDs) {
 				oid = result.ColumnOIDs[col]
 			}
-			t.SetCell(row, col, typedCell(v, oid))
+			t.SetCell(row, col, typedCell(v, oid).SetReference(v))
 		}
 		row++
 	}

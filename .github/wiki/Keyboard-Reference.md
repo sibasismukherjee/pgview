@@ -8,13 +8,13 @@ Complete key bindings for every view in pgview.
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Move selection |
+| `↑` / `↓` or scroll | Move selection (table stats auto-appear in header as you scroll) |
 | `Enter` | View data rows |
 | `d` | Open schema browser |
-| `i` | Show table stats (estimated row count, PK, index count) |
 | `/` | Fuzzy search across all schemas and tables |
 | `r` | Refresh list |
 | `e` | Open SQL editor |
+| `Ctrl+A` | Toggle audit logging |
 | `q` | Quit |
 
 ---
@@ -31,9 +31,9 @@ Complete key bindings for every view in pgview.
 | `f` | Row viewer / editor |
 | `d` | Open schema browser for this table |
 | `E` | Export full result set to CSV or JSON |
-| `i` | Refresh table stats |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
+| `Ctrl+A` | Toggle audit logging |
 | `Esc` | Back to table list (clears filter) |
 
 ---
@@ -49,7 +49,7 @@ Opened with `f` from the data view. Displays every column of the selected row in
 | `Ctrl+S` | Save — runs `UPDATE … SET … WHERE pk = …` and refreshes |
 | `Esc` | Close and return to data view |
 
-Modified fields are highlighted in teal with an `(edited)` marker. Type `NULL` (any case) to set a field to NULL.
+Modified fields are highlighted in teal with an `(edited)` marker. Type `NULL` (any case) to set a field to NULL. NULL values show as `∅`; empty strings show as `''`.
 
 ---
 

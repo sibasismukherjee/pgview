@@ -2,11 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/sibasismukherjee/pgview/internal/audit"
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
@@ -167,12 +170,8 @@ func (app *App) openSQL(sql string) {
 	templatesTable := tview.NewTable().
 		SetSelectable(true, false).
 		SetFixed(1, 0)
-	templatesTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
-	templatesTable.SetSelectedStyle(
-		tcell.StyleDefault.
-			Background(colSelected).
-			Foreground(colSelectedFg),
-	)
+	templatesTable.SetBackgroundColor(tcell.ColorDefault)
+	templatesTable.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 	templatesTable.SetCell(0, 0,
 		tview.NewTableCell(" Templates").
 			SetTextColor(colPageTitle).
@@ -186,12 +185,8 @@ func (app *App) openSQL(sql string) {
 	historyTable := tview.NewTable().
 		SetSelectable(true, false).
 		SetFixed(1, 0)
-	historyTable.SetBackgroundColor(tcell.NewRGBColor(30, 30, 30))
-	historyTable.SetSelectedStyle(
-		tcell.StyleDefault.
-			Background(colSelected).
-			Foreground(colSelectedFg),
-	)
+	historyTable.SetBackgroundColor(tcell.ColorDefault)
+	historyTable.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 
 	historyTable.SetCell(0, 0,
 		tview.NewTableCell(" History").
@@ -386,7 +381,7 @@ func (app *App) openSQL(sql string) {
 		case event.Key() == tcell.KeyCtrlE:
 			query := strings.TrimSpace(editor.GetText())
 			app.pages.RemovePage(pageSQLEditor)
-			app.runSQL(query)
+			app.executeWithGuards(query)
 			return nil
 		case event.Key() == tcell.KeyEscape:
 			app.pages.RemovePage(pageSQLEditor)
@@ -436,8 +431,9 @@ func (app *App) openSQL(sql string) {
 	})
 }
 
-// runSQL executes an arbitrary SQL statement and shows the result in the data view.
-func (app *App) runSQL(query string) {
+// doRunSQL is the universal post-guard executor called by executeWithGuards (confirm.go).
+// kind is "UPDATE", "DELETE", "INSERT", "TRUNCATE", or "" for reads.
+func (app *App) doRunSQL(query, kind string) {
 	if query == "" {
 		app.switchPage(app.currentContentPage())
 		return
@@ -454,8 +450,213 @@ func (app *App) runSQL(query string) {
 	app.setFooter("[#4ec9b0]Running…[-]")
 	app.tv.ForceDraw()
 
-	result, err := app.client.Query(query)
+	// ── Audit: pre-capture rows before UPDATE/DELETE (inside a transaction) ─
+	// BEGIN before the SELECT so both the capture and the DML execute at the
+	// same snapshot, guaranteeing the captured values match what was changed.
+	var capturedRows []map[string]string
+	var capturedCols []string
+	var captureSkipped bool
+	inTxn := false
+	if app.auditMode && app.restoreLogger != nil && (kind == "UPDATE" || kind == "DELETE") {
+		if _, txErr := app.client.Query("BEGIN"); txErr == nil {
+			inTxn = true
+		}
+		capturedRows, capturedCols = app.preCaptureRows(query, kind)
+		if capturedRows == nil {
+			captureSkipped = true
+		}
+	}
+
+	// ── Audit: inject RETURNING for INSERT to capture the inserted PK ─────
+	execQuery := query
+	var insertPKCol string
+	if app.auditMode && app.restoreLogger != nil && kind == "INSERT" && app.curTable != "" {
+		parts := strings.SplitN(app.curTable, ".", 2)
+		if len(parts) == 2 {
+			_, pkCols, _ := app.client.TableInfo(parts[0], parts[1])
+			insertPKCol = firstPK(pkCols, nil)
+			if insertPKCol != "" && !strings.Contains(strings.ToUpper(query), "RETURNING") {
+				execQuery = strings.TrimRight(strings.TrimSpace(query), ";") +
+					" RETURNING " + pgIdent(insertPKCol)
+			}
+		}
+	}
+
+	// ── Execute ───────────────────────────────────────────────────────────
+	start := time.Now()
+	result, err := app.client.Query(execQuery)
+	dur := time.Since(start)
+
+	// Commit or roll back the pre-capture transaction.
+	if inTxn {
+		if err != nil {
+			_, _ = app.client.Query("ROLLBACK")
+		} else if _, commitErr := app.client.Query("COMMIT"); commitErr != nil {
+			err = commitErr
+			result = nil
+		}
+	}
+
+	// ── Audit log ─────────────────────────────────────────────────────────
+	if app.auditMode {
+		schema, table := splitTable(app.curTable)
+		rows := -1
+		if result != nil && kind == "" {
+			rows = len(result.Rows)
+		}
+		stmtType := audit.StmtSelect
+		switch kind {
+		case "UPDATE":
+			stmtType = audit.StmtUpdate
+		case "DELETE":
+			stmtType = audit.StmtDelete
+		case "INSERT":
+			stmtType = audit.StmtInsert
+		case "TRUNCATE":
+			stmtType = audit.StmtDDL
+		}
+		app.logAudit(audit.Record{
+			Type:     stmtType,
+			Schema:   schema,
+			Table:    table,
+			SQL:      query,
+			Duration: dur,
+			Rows:     rows,
+			Err:      err,
+		})
+	}
+
+	// ── Restore log ───────────────────────────────────────────────────────
+	if app.auditMode && app.restoreLogger != nil && err == nil && app.curTable != "" {
+		parts := strings.SplitN(app.curTable, ".", 2)
+		if len(parts) == 2 {
+			fqTable := pgIdent(parts[0]) + "." + pgIdent(parts[1])
+			switch kind {
+			case "UPDATE":
+				if captureSkipped {
+					app.restoreLogger.LogSkipped(query, app.estimateDMLRows(query))
+				} else {
+					_, pkCols, _ := app.client.TableInfo(parts[0], parts[1])
+					pkCol := firstPK(pkCols, nil)
+					app.restoreLogger.LogUpdate(fqTable, query, pkCol, capturedCols, capturedRows)
+				}
+			case "DELETE":
+				if captureSkipped {
+					app.restoreLogger.LogSkipped(query, app.estimateDMLRows(query))
+				} else {
+					app.restoreLogger.LogDelete(fqTable, query, capturedCols, capturedRows)
+				}
+			case "INSERT":
+				if insertPKCol != "" && result != nil && len(result.Rows) > 0 && len(result.Rows[0]) > 0 {
+					app.restoreLogger.LogInsert(fqTable, insertPKCol, result.Rows[0][0], query)
+				}
+			}
+		}
+	}
+
 	app.showSQLResult(result, err)
+
+	// Persist DML summary in the lastDMLBar for all views.
+	if kind != "" {
+		tag := ""
+		if result != nil {
+			tag = result.Tag
+		}
+		app.setLastDML(kind, query, tag, err)
+	}
+
+	// Show a status-bar warning when pre-capture was skipped (too many rows or
+	// complex statement) so the operator knows restore SQL is incomplete.
+	if captureSkipped && app.auditMode {
+		app.setFooter("[#dcdcaa][AUDIT] restore capture skipped — too many rows or complex statement[-]")
+	}
+}
+
+// logAbortedDML is called by the confirm modal's onAbort callback.
+func (app *App) logAbortedDML(kind, query string) {
+	schema, table := splitTable(app.curTable)
+	app.logAudit(audit.Record{
+		Type:        audit.StmtAborted,
+		Schema:      schema,
+		Table:       table,
+		SQL:         query,
+		Rows:        -1,
+		AbortReason: "user cancelled " + kind + " at confirmation prompt",
+	})
+}
+
+// preCaptureRows runs a SELECT to fetch the rows that will be affected by an
+// UPDATE or DELETE, so the restore logger can generate inverse statements.
+// Returns (nil, nil) if the query cannot be parsed or the row count exceeds 1000.
+func (app *App) preCaptureRows(query, kind string) (rows []map[string]string, cols []string) {
+	selectSQL, ok := buildPreCaptureSelect(kind, query)
+	if !ok || app.client == nil {
+		return nil, nil
+	}
+	result, err := app.client.Query(selectSQL)
+	if err != nil || result == nil {
+		return nil, nil
+	}
+	if len(result.Rows) > 1000 {
+		return nil, nil // too many — caller logs as skipped
+	}
+	cols = result.Columns
+	rows = make([]map[string]string, len(result.Rows))
+	for i, row := range result.Rows {
+		m := make(map[string]string, len(cols))
+		for j, col := range cols {
+			if j < len(row) {
+				m[col] = row[j]
+			}
+		}
+		rows[i] = m
+	}
+	return rows, cols
+}
+
+// buildPreCaptureSelect converts an UPDATE or DELETE into an equivalent SELECT
+// over the same table and WHERE clause, LIMIT 1001.
+// Returns ("", false) when the query cannot be parsed with simple heuristics.
+var (
+	reUpdateTable = regexp.MustCompile(`(?i)^UPDATE\s+(\S+)\s+SET\s`)
+	reDeleteTable = regexp.MustCompile(`(?i)^DELETE\s+FROM\s+(\S+)\s`)
+	// reWhere matches any whitespace before/after WHERE so multi-line queries
+	// (newlines from the editor or templates) are handled correctly.
+	reWhere = regexp.MustCompile(`(?i)\s+WHERE\s+`)
+)
+
+func buildPreCaptureSelect(kind, query string) (string, bool) {
+	q := strings.TrimSpace(query)
+	upper := strings.ToUpper(q)
+
+	// Find the last WHERE keyword, tolerating spaces, tabs, and newlines around
+	// it. strings.LastIndex(upper, " WHERE ") misses "\nWHERE " from multi-line
+	// editor input, causing the restore capture to be silently skipped.
+	locs := reWhere.FindAllStringIndex(upper, -1)
+	if len(locs) == 0 {
+		return "", false
+	}
+	last := locs[len(locs)-1]
+	whereClause := strings.TrimSpace(q[last[1]:])
+
+	var table string
+	switch kind {
+	case "UPDATE":
+		m := reUpdateTable.FindStringSubmatch(q)
+		if len(m) < 2 {
+			return "", false
+		}
+		table = m[1]
+	case "DELETE":
+		m := reDeleteTable.FindStringSubmatch(q)
+		if len(m) < 2 {
+			return "", false
+		}
+		table = m[1]
+	default:
+		return "", false
+	}
+	return fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1001", table, whereClause), true
 }
 
 // showSQLResult renders query output in the data widget.
@@ -467,11 +668,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageData, app.dataWidget, true, false)
 	}
 
@@ -490,7 +687,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 	for col, name := range result.Columns {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", name)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)
@@ -501,7 +698,7 @@ func (app *App) showSQLResult(result *db.QueryResult, err error) {
 			if col < len(result.ColumnOIDs) {
 				oid = result.ColumnOIDs[col]
 			}
-			t.SetCell(row+1, col, typedCell(v, oid))
+			t.SetCell(row+1, col, typedCell(v, oid).SetReference(v))
 		}
 	}
 	if len(result.Rows) == 0 {

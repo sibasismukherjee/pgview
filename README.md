@@ -12,19 +12,21 @@
 
 ## Features
 
-- **k9s-style TUI** — navigable table list, data view, and schema browser
+- **k9s-style TUI** — navigable table list, data view, and schema browser with a box-drawing `pg view` logo
 - **Connect anywhere** — host:port, pgBouncer, RDS Proxy, or a full `postgres://` DSN
 - **Paginated data view** — scroll through large tables with `n`/`p`
 - **Mouse and touchpad navigation** — vertical and horizontal scroll gestures work everywhere; two-finger swipe pans wide result sets sideways
 - **Smart filter DSL** — narrow data rows with `/`: `col=val`, `col=%sub%`, `col>val`, or free text; array and JSONB columns match element-wise
+- **NULL vs empty string distinction** — SQL NULL renders as `∅` (dim) and empty strings as `''` in all views so they are never visually ambiguous
 - **SQL editor** — open a full-screen SQL editor with `e`, run with `Ctrl+E`
 - **SQL templates panel** — `Ctrl+T` opens a side panel with pre-filled Query / Write / DDL templates built from the current table's real column names; select one to load it into the editor
 - **Schema-aware Tab completion** — clause-sensitive suggestions: type-matched operators after column names (LIKE for text, >= for timestamps, IS TRUE for booleans, = ANY( for arrays), table names after FROM/JOIN, column names in SELECT/WHERE
-- **Row viewer and inline editor** — press `f` in data view to open a full-screen two-column table (Column | Value) for the selected row; press `e`/`Enter` to edit any field in-place, `Ctrl+S` to commit as an `UPDATE`, `Esc` to close
+- **Row viewer and inline editor** — press `f` in data view to open a full-screen two-column table (Column | Value) for the selected row; press `e`/`Enter` to edit any field in-place, `Ctrl+S` to commit as an `UPDATE`, `Esc` to close; type `NULL` to set a field to NULL
 - **Query history** — `Ctrl+R` in the SQL editor opens a navigable history panel
 - **Schema browser** — press `d` to open a 4-tab panel: Columns, Indexes, Constraints, and a reconstructed DDL view; navigate tabs with `Tab` or `1`–`4`
 - **Fuzzy table search** — press `/` to open a full-screen fuzzy finder across all schemas and tables; matched characters are highlighted; arrow keys navigate, `Enter` opens the table
 - **Export to CSV / JSON** — press `E` (Shift+E) in the data view to export the full result set (without page limit) to a file; format and path prompted interactively
+- **Audit logging** — `Ctrl+A` records every DML with a companion restore SQL file; configurable via `-audit-dir` flag, `PGVIEW_AUDIT_DIR` env, or `~/.pgview/config.yml`
 - **Secure password prompt** — no echo, uses terminal raw mode
 
 ---
@@ -33,10 +35,12 @@
 
 ![pgview demo](assets/demo.gif)
 
-**Table list**
+**Table list** (stats auto-appear as you scroll — no key needed)
 ```
- pgview              │  <↵> view  <d> schema  <i> stats              │  Tables
- admin@mydb · local  │  </> search  <r> refresh  <e> SQL  <q> quit  │  public
+ ┌─╮╭─╮             │  <↵> view  <d> schema  │  </> search  <r> refresh   │  Tables
+ ├─╯│ ╰╮ view       │  <e> SQL  <Ctrl+A> audit  <q> quit                  │  public.customers  ~1.2K · PK: id · 2 idx
+ ╵  └──╯ adm@mydb   │                                                      │
+          localhost  │                                                      │
 ─────────────────────┴──────────────────────────────────────────────────────────────────
   schema    table                   type
   public    orders                  BASE TABLE
@@ -45,18 +49,19 @@
   reporting monthly_totals          VIEW
 ```
 
-**Data view with filter**
+**Data view with NULL and empty string**
 ```
- pgview              │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data  public.customers
- admin@mydb · local  │  <d> schema  <f> row view/edit  <E> export  <i> stats  │  <r> refresh  <e> SQL  │  42 rows  ~1.2K est · PK: id
-─────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────
-  id    name              status    created_at           tags
-▶ 1     Alice Johnson     active    2024-01-15 09:23:11  {platform,growth}
-  3     Carol White       active    2024-03-19 11:02:44  {platform,api}
-  7     Eve Martinez      active    2024-05-01 16:14:09  {growth}
-
- WHERE "status"::text ILIKE 'active'
+ ┌─╮╭─╮             │  <Esc> back  <g> top  <G> bottom  │  <n>/<p> page  │  </> filter  │  Data
+ ├─╯│ ╰╮ view       │  <d> schema  <f> row view/edit  <E> export          │  <r> refresh │  public.customers  42 rows
+ ╵  └──╯ adm@mydb   │  <e> SQL  <Ctrl+A> audit                            │              │  ~1.2K est · PK: id
+          localhost  │                                                      │              │
+─────────────────────┴────────────────────────────────────────────────────────────────────────────────────
+  id    name              email              bio    created_at
+▶ 1     Alice Johnson     alice@example.com  ∅      2024-01-15 09:23:11
+  3     Carol White       ''                 ∅      2024-03-19 11:02:44
+  7     Eve Martinez      eve@example.com    hello  2024-05-01 16:14:09
 ```
+> `∅` = SQL NULL (database has no value); `''` = empty string (value is explicitly empty)
 
 **Row viewer / inline editor** (`f` on any row)
 ```
@@ -66,14 +71,14 @@
 ─────────────────────┼──────────────────────────────────────────────────────────
  id                  │  1
  name                │  Alice Johnson
-▶ status             │  active                              (edited)
+▶ email              │  ''                                  (edited)
+ bio                 │  ∅
  created_at          │  2024-01-15 09:23:11
- tags                │  {platform,growth}
 ─────────────────────┴──────────────────────────────────────────────────────────
 
  1 unsaved change(s) — Ctrl+S to save, Esc to discard
 
- edit status  ▏ inactive▌
+ edit email  ▏ alice@example.com▌
 ```
 
 **Fuzzy table search** (`/` from the table list)
@@ -192,12 +197,15 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 ### Flags
 
 ```
-  -url       PostgreSQL connection URL — host, host:port, or postgres://...
-  -username  Database username (prompted if omitted)
-  -password  Database password (prompted securely if omitted)
-  -dbname    Database name (default: postgres)
-  -sslmode   SSL mode: disable | allow | prefer | require (default: prefer)
-  -version   Print version and exit
+  -url           PostgreSQL connection URL — host, host:port, or postgres://...
+  -username      Database username (prompted if omitted)
+  -password      Database password (prompted securely if omitted)
+  -dbname        Database name (default: postgres)
+  -sslmode       SSL mode: disable | allow | prefer | require (default: prefer)
+  -audit         Start session with audit logging pre-enabled
+  -audit-dir     Directory for audit and restore log files (overrides config.yml and PGVIEW_AUDIT_DIR)
+  -dml-confirm   DML confirmation row threshold (0=disable, -1=always; overrides config.yml)
+  -version       Print version and exit
 ```
 
 ---
@@ -208,13 +216,13 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Move selection |
+| `↑` / `↓` or scroll | Move selection (stats auto-appear in header as you scroll) |
 | `Enter` | View data rows |
 | `d` | Open schema browser |
-| `i` | Show table stats (estimated row count, PK, index count) |
 | `/` | Fuzzy search across all schemas and tables |
 | `r` | Refresh list |
 | `e` | Open SQL editor |
+| `Ctrl+A` | Toggle audit logging |
 | `q` | Quit |
 
 ### Data view
@@ -229,9 +237,9 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `f` | Row viewer / editor — see all columns of the selected row, edit any field |
 | `d` | Open schema browser for this table |
 | `E` | Export full result set to CSV or JSON (prompts for format and path) |
-| `i` | Refresh table stats (row count, PK, indexes) |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
+| `Ctrl+A` | Toggle audit logging |
 | `Esc` | Back to table list (clears filter) |
 
 ### Row viewer / editor
@@ -245,7 +253,25 @@ Opened with `f` from the data view. Displays every column of the selected row in
 | `Ctrl+S` | Save — runs `UPDATE … SET … WHERE pk = …` and refreshes data view |
 | `Esc` | Close and return to data view |
 
-Modified fields are highlighted in teal with an `(edited)` marker. The footer counts unsaved changes. Type `NULL` (any case) to set a field to `NULL`.
+Modified fields are highlighted in teal with an `(edited)` marker. The footer counts unsaved changes. Type `NULL` (any case) to set a field to `NULL`. NULL values display as `∅`; empty strings display as `''`.
+
+### Audit logging
+
+`Ctrl+A` enables/disables audit mode. While active:
+
+- Every statement is appended to a JSON-L audit log in `~/.pgview/sessions/` (configurable)
+- A restore SQL file is written alongside — run `tac restore_*.sql | grep -v '^--' | psql` to undo all DML in reverse order
+- DML that would affect more than the confirmation threshold (default 50 rows) requires a `y` confirmation before executing
+- On quit, pgview prints a summary with the log paths and the undo command
+
+Configure the log directory and confirmation threshold in `~/.pgview/config.yml`:
+
+```yaml
+audit_dir: ~/my-audit-logs      # default: ~/.pgview/sessions/
+dml_confirm_threshold: 10       # 0 = disabled, -1 = always confirm
+```
+
+Override at runtime with `-audit-dir <path>` or `PGVIEW_AUDIT_DIR=<path>`.
 
 ### Filter DSL
 

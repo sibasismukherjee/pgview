@@ -3,10 +3,12 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/sibasismukherjee/pgview/internal/audit"
 	"github.com/sibasismukherjee/pgview/internal/db"
 )
 
@@ -34,7 +36,7 @@ func (app *App) showSchema() {
 			SetDynamicColors(true).
 			SetWordWrap(false).
 			SetWrap(false)
-		app.schemaTabBar.SetBackgroundColor(colColHeader)
+		app.schemaTabBar.SetBackgroundColor(tcell.ColorDefault)
 
 		newSchemaTable := func() *tview.Table {
 			t := tview.NewTable().
@@ -42,9 +44,7 @@ func (app *App) showSchema() {
 				SetSelectable(true, false).
 				SetFixed(1, 0)
 			t.SetBackgroundColor(tcell.ColorDefault)
-			t.SetSelectedStyle(tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg))
+			t.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 			return t
 		}
 
@@ -110,12 +110,22 @@ func (app *App) loadSchemaColsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}
 
+	schStart := time.Now()
 	result, err := app.client.DescribeTable(schema, table)
+	app.logAudit(audit.Record{
+		Type:     audit.StmtSchema,
+		Schema:   schema,
+		Table:    table,
+		SQL:      fmt.Sprintf("-- describe %s.%s (columns)", schema, table),
+		Duration: time.Since(schStart),
+		Rows:     -1,
+		Err:      err,
+	})
 	if err != nil {
 		t.SetCell(1, 0, errCell(fmt.Sprintf("error: %v", err)))
 		return
@@ -152,12 +162,22 @@ func (app *App) loadSchemaIdxsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}
 
+	idxStart := time.Now()
 	result, err := app.client.SchemaIndexes(schema, table)
+	app.logAudit(audit.Record{
+		Type:     audit.StmtSchema,
+		Schema:   schema,
+		Table:    table,
+		SQL:      fmt.Sprintf("-- describe %s.%s (indexes)", schema, table),
+		Duration: time.Since(idxStart),
+		Rows:     -1,
+		Err:      err,
+	})
 	if err != nil {
 		t.SetCell(1, 0, errCell(fmt.Sprintf("error: %v", err)))
 		return
@@ -200,12 +220,22 @@ func (app *App) loadSchemaConsTab(schema, table string) {
 	for col, label := range headers {
 		t.SetCell(0, col, tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1))
 	}
 
+	consStart := time.Now()
 	result, err := app.client.SchemaConstraints(schema, table)
+	app.logAudit(audit.Record{
+		Type:     audit.StmtSchema,
+		Schema:   schema,
+		Table:    table,
+		SQL:      fmt.Sprintf("-- describe %s.%s (constraints)", schema, table),
+		Duration: time.Since(consStart),
+		Rows:     -1,
+		Err:      err,
+	})
 	if err != nil {
 		t.SetCell(1, 0, errCell(fmt.Sprintf("error: %v", err)))
 		return
@@ -241,9 +271,18 @@ func (app *App) loadSchemaDDLTab(schema, table string) {
 	v := app.schemaDDLV
 	v.Clear()
 
+	ddlStart := time.Now()
 	cols, colsErr := app.client.SchemaDDLCols(schema, table)
 	cons, consErr := app.client.SchemaConstraints(schema, table)
 	idxs, idxsErr := app.client.SchemaIndexes(schema, table)
+	app.logAudit(audit.Record{
+		Type:     audit.StmtSchema,
+		Schema:   schema,
+		Table:    table,
+		SQL:      fmt.Sprintf("-- describe %s.%s (DDL)", schema, table),
+		Duration: time.Since(ddlStart),
+		Rows:     -1,
+	})
 
 	v.SetText(buildDDL(schema, table, cols, colsErr, cons, consErr, idxs, idxsErr))
 	v.ScrollToBeginning()

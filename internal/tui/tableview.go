@@ -18,12 +18,42 @@ func (app *App) showTableList() {
 			SetSelectable(true, false).
 			SetFixed(1, 0)
 		app.tableListWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.tableListWidget.SetSelectedStyle(
-			tcell.StyleDefault.
-				Background(colSelected).
-				Foreground(colSelectedFg),
-		)
+		app.tableListWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 		app.pages.AddPage(pageTableList, app.tableListWidget, true, false)
+
+		// Show table stats in infoBar automatically as the user scrolls.
+		app.tableListWidget.SetSelectionChangedFunc(func(row, _ int) {
+			if row < 1 {
+				return
+			}
+			schema := strings.TrimSpace(app.tableListWidget.GetCell(row, 0).Text)
+			table := strings.TrimSpace(app.tableListWidget.GetCell(row, 1).Text)
+			if table == "" {
+				return
+			}
+			target := schema + "." + table
+			go func() {
+				estRows, pkCols, idxCount := app.client.TableInfo(schema, table)
+				pk := pkCols
+				if pk == "" {
+					pk = "—"
+				}
+				stats := fmt.Sprintf(
+					"[#c8daf0]%s.%s[-]  [#6a6a6a]~%s  ·  PK: %s  ·  %d idx[-]",
+					schema, table, fmtCount(estRows), pk, idxCount,
+				)
+				app.tv.QueueUpdateDraw(func() {
+					curRow, _ := app.tableListWidget.GetSelection()
+					if curRow >= 1 {
+						cs := strings.TrimSpace(app.tableListWidget.GetCell(curRow, 0).Text)
+						ct := strings.TrimSpace(app.tableListWidget.GetCell(curRow, 1).Text)
+						if cs+"."+ct == target {
+							app.setInfoStats(stats)
+						}
+					}
+				})
+			}()
+		})
 	}
 
 	app.loadTableList()
@@ -49,22 +79,6 @@ func (app *App) showTableList() {
 		case event.Rune() == 'e':
 			app.openSQL("")
 			return nil
-		case event.Rune() == 'i':
-			schema, table := app.selectedTable()
-			if table != "" {
-				// Query stats for the hovered table without changing curTable
-				// (the user has not navigated into it yet).
-				estRows, pkCols, idxCount := app.client.TableInfo(schema, table)
-				pk := pkCols
-				if pk == "" {
-					pk = "—"
-				}
-				app.setInfoStats(fmt.Sprintf(
-					"[#c8daf0]%s.%s[-]  [#6a6a6a]~%s est  ·  PK: %s  ·  %d indexes[-]",
-					schema, table, fmtCount(estRows), pk, idxCount,
-				))
-			}
-			return nil
 		case event.Rune() == 'q':
 			app.tv.Stop()
 			return nil
@@ -81,7 +95,7 @@ func (app *App) loadTableList() {
 	for col, label := range []string{"Schema", "Table", "Type"} {
 		cell := tview.NewTableCell(fmt.Sprintf(" [::b]%s[::-]", label)).
 			SetTextColor(colColHeaderFg).
-			SetBackgroundColor(colColHeader).
+			SetBackgroundColor(tcell.ColorDefault).
 			SetSelectable(false).
 			SetExpansion(1)
 		t.SetCell(0, col, cell)
@@ -174,7 +188,13 @@ func errCell(text string) *tview.TableCell {
 // column OID, so numeric values right-align, booleans get semantic colours, etc.
 func typedCell(text string, oid uint32) *tview.TableCell {
 	if text == "NULL" {
-		return tview.NewTableCell(" NULL").
+		return tview.NewTableCell(" ∅").
+			SetTextColor(colNull).
+			SetAttributes(tcell.AttrDim).
+			SetExpansion(1)
+	}
+	if text == "" {
+		return tview.NewTableCell(" ''").
 			SetTextColor(colNull).
 			SetAttributes(tcell.AttrDim).
 			SetExpansion(1)

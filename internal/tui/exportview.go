@@ -9,6 +9,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/sibasismukherjee/pgview/internal/audit"
 	"github.com/sibasismukherjee/pgview/internal/export"
 )
 
@@ -91,7 +92,23 @@ func (app *App) doExport(format, rawPath string) {
 	app.setFooter("[#6a6a6a]Exporting…[-]")
 	app.tv.ForceDraw()
 
+	schema, table := splitTable(app.curTable)
+	expStart := time.Now()
 	result, err := app.client.Query(app.exportSQL)
+	expDur := time.Since(expStart)
+	rows := -1
+	if err == nil && result != nil {
+		rows = len(result.Rows)
+	}
+	app.logAudit(audit.Record{
+		Type:     audit.StmtExport,
+		Schema:   schema,
+		Table:    table,
+		SQL:      app.exportSQL,
+		Duration: expDur,
+		Rows:     rows,
+		Err:      err,
+	})
 	if err != nil {
 		app.setFooter(fmt.Sprintf("[#f44747]query error: %v[-]", err))
 		app.tv.ForceDraw()
