@@ -53,7 +53,7 @@ Sleep 800ms
 Type "ord"
 Sleep 2s
 
-# order_items ranks first alphabetically; Down selects orders
+# order_items ranks first; Down selects orders
 Down
 Sleep 800ms
 Enter
@@ -61,41 +61,49 @@ Sleep 3s
 
 # ─── 3. NULL vs empty string distinction in the data grid ────────────────────
 # SQL NULL cells render as ∅ (dim); empty string cells render as '' (dim).
-# Both are visually distinct from real values and from each other.
+# orders.notes: id=1 → NULL (∅), id=2 → '' (''), id=4 → real text
 
-Sleep 2s
-# Scroll down to show rows with NULL and empty-string values side by side
-Down
-Sleep 500ms
-Down
-Sleep 500ms
-Down
-Sleep 1s
 Sleep 2.5s
 
-# ─── 4. Row viewer — ∅ and '' labels in context ──────────────────────────────
-# 'f' opens the full-column row viewer.
-# NULL fields show ∅, empty-string fields show '', edited fields show the label.
+# ─── 4. Row viewer — ∅ label for NULL field ──────────────────────────────────
+# 'f' on row 1 (notes = NULL) — the notes field shows ∅
 
 Type "f"
-Sleep 2.5s
-# Navigate to a NULL field
+Sleep 2s
+# Navigate down to the notes field (id, route_id, amount, placed_at, notes)
 Down
-Sleep 600ms
+Sleep 400ms
+Down
+Sleep 400ms
+Down
+Sleep 400ms
 Down
 Sleep 800ms
-# The value column shows ∅ for NULL — press 'e' to edit
+# The value column shows ∅ — press 'e' to edit; input bar shows "NULL"
 Type "e"
 Sleep 1.5s
-# The input bar is pre-filled with "NULL" so user can type a new value or leave it
 Escape
 Sleep 800ms
-# Navigate to an empty-string field
+Escape
+Sleep 1s
+
+# Navigate to row 2 (notes = '')
 Down
 Sleep 600ms
+# Row viewer on id=2 — notes field shows ''
+Type "f"
+Sleep 2s
+Down
+Sleep 400ms
+Down
+Sleep 400ms
+Down
+Sleep 400ms
+Down
+Sleep 800ms
+# The value column shows '' — press 'e' to edit; input bar is blank
 Type "e"
 Sleep 1.5s
-# Input bar is blank (empty string); user can type a value
 Escape
 Sleep 800ms
 Escape
@@ -183,7 +191,6 @@ Sleep 3s
 
 Type "e"
 Sleep 2s
-Sleep 1s
 Ctrl+L
 Sleep 500ms
 Type "UPDATE public.routes SET status = 'active' WHERE id = 4"
