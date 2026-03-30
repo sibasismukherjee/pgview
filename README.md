@@ -33,7 +33,7 @@
 
 ## Demo
 
-![pgview demo](assets/demo.gif)
+<img src="assets/demo.gif" width="900" alt="pgview demo" />
 
 **Table list** (stats auto-appear as you scroll — no key needed)
 ```
