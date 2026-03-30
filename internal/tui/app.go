@@ -223,12 +223,12 @@ func (app *App) setupMouseCapture() {
 // The 2-row headerBar replaces the old 4-row topArea + 2-row tooltip,
 // saving 4 rows of vertical space for content.
 func (app *App) buildLayout() {
-	// Left column — connection info (sidebar gray, fixed 30 chars).
+	// Left column — connection info (flex, wraps on narrow terminals).
 	app.connPanel = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
-		SetWordWrap(false).
-		SetWrap(false)
+		SetWordWrap(true).
+		SetWrap(true)
 	app.connPanel.SetBackgroundColor(tcell.ColorDefault)
 	app.connPanel.SetTextColor(colTooltipFg)
 
@@ -236,23 +236,23 @@ func (app *App) buildLayout() {
 	app.hintBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
-		SetWordWrap(false).
-		SetWrap(false)
+		SetWordWrap(true).
+		SetWrap(true)
 	app.hintBar.SetBackgroundColor(tcell.ColorDefault)
 	app.hintBar.SetTextColor(colTooltipFg)
 
-	// Right column — page title + table stats (transparent, fixed 44 chars).
+	// Right column — page title + table stats (transparent, flex).
 	app.infoBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
-		SetWordWrap(false).
-		SetWrap(false)
+		SetWordWrap(true).
+		SetWrap(true)
 	app.infoBar.SetBackgroundColor(tcell.ColorDefault)
 	app.infoBar.SetTextColor(colInfoFg)
 
 	headerBar := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(app.connPanel, 32, 0, false).
+		AddItem(app.connPanel, 0, 1, false).
 		AddItem(app.hintBar, 0, 3, false).
 		AddItem(app.infoBar, 0, 2, false)
 
@@ -278,7 +278,7 @@ func (app *App) buildLayout() {
 
 	app.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(headerBar, 4, 0, false).
+		AddItem(headerBar, 5, 0, false).
 		AddItem(app.pages, 0, 1, true).
 		AddItem(app.cmdBar, 1, 0, false).
 		AddItem(app.lastDMLBar, 1, 0, false).
@@ -301,22 +301,13 @@ func (app *App) setHeader(pageTitle, subtitle string) {
 }
 
 // setConnPanel populates the connection info panel (4 rows, left column).
-// Row 1: blank  Row 2: pg logo top  Row 3: pg logo + view + audit badge
-// Row 4: pg logo bottom + user@db · host
+// Row 1: blank  Row 2: pg logo top  Row 3: pg logo mid + view + audit badge
+// Row 4: pg logo bottom  Row 5: user@db · host (full, no truncation)
 func (app *App) setConnPanel() {
-	userDB := truncate(app.dbUser+"@"+app.dbName, 12)
-	host := truncate(app.dbHost, 8)
 	app.connPanel.SetText(fmt.Sprintf(
-		"\n [#569cd6]┌─╮[#00a080]╭─╮[-]\n [#569cd6]├─╯[#00a080]│ ╰╮[-] [white::b]view[-]%s\n [#569cd6]╵  [#00a080]└──╯[-] [#969696]%s [#6a6a6a]·[-] [#969696]%s[-]",
-		app.auditBadge(), userDB, host,
+		"\n [#569cd6]┌─╮[#00a080]╭─╮[-]\n [#569cd6]├─╯[#00a080]│ ╰╮[-] [white::b]view[-]%s\n [#569cd6]╵  [#00a080]└──╯[-]\n [#969696]%s[#6a6a6a] · [-][#969696]%s[-]",
+		app.auditBadge(), app.dbUser+"@"+app.dbName, app.dbHost,
 	))
-}
-
-func truncate(s string, max int) string {
-	if len(s) > max {
-		return s[:max-1] + "…"
-	}
-	return s
 }
 
 func (app *App) setTooltip(hotkeys string) {
