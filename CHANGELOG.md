@@ -6,10 +6,18 @@ All notable changes to pgview are documented here.
 
 ## [Unreleased]
 
+---
+
+## [v0.6.0] — 2026-03-31
+
 ### Changed
 
-- README fully redesigned: scenario-first narrative (incident response, schema exploration, safe data fixup), concise feature table, portfolio site link for full docs; keyboard reference and detailed usage moved to the portfolio docs page
+- README fully redesigned: scenario-first narrative (incident response, schema exploration, safe data fixup, data export), concise feature table, portfolio site link for full docs; keyboard reference and detailed usage moved to the portfolio docs page
 - Demo tape updated to show SQL result bar, clipboard copy (`y`), and a narrative flow around a real investigation workflow
+- Docs site blockquote moved above the demo GIF so it is visible before any prose
+- Install one-liner now fetches the latest release tag dynamically (`-sfL`, correct artifact naming `pgview_${TAG}_${OS}_${ARCH}`)
+- WSL2 note added to Install section
+- Interactive prompt flow described under Connect section
 
 ---
 
@@ -237,6 +245,7 @@ All notable changes to pgview are documented here.
 
 ---
 
+[v0.6.0]: https://github.com/sibasismukherjee/pgview/compare/v0.5.1...v0.6.0
 [v0.5.1]: https://github.com/sibasismukherjee/pgview/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/sibasismukherjee/pgview/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...v0.4.1
