@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" width="170" alt="pgview logo"/>
+  <img src="assets/logo.svg" width="400" alt="pgview logo"/>
 </p>
 
 <h1 align="center">pgview</h1>
