@@ -27,6 +27,7 @@
 - **Fuzzy table search** — press `/` to open a full-screen fuzzy finder across all schemas and tables; matched characters are highlighted; arrow keys navigate, `Enter` opens the table
 - **Export to CSV / JSON** — press `E` (Shift+E) in the data view to export the full result set (without page limit) to a file; format and path prompted interactively
 - **Audit logging** — `Ctrl+A` records every DML with a companion restore SQL file; configurable via `-audit-dir` flag, `PGVIEW_AUDIT_DIR` env, or `~/.pgview/config.yml`
+- **SQL result bar** — after running a query from the editor, the executed SQL is shown in a panel above the results; hidden during normal table browse
 - **Clipboard copy** — `y` yanks the focused cell value to the clipboard; also works in the row viewer; auto-detects tmux and uses the tmux paste buffer when inside a tmux session
 - **Secure password prompt** — no echo, uses terminal raw mode
 
@@ -299,6 +300,8 @@ The `/` filter accepts a mini-language; terms are AND-ed:
 | `Ctrl+R` | Open query history panel |
 | `Ctrl+L` | Clear editor |
 | `Esc` | Cancel and go back |
+
+After `Ctrl+E`, the SQL statement that was run appears in a compact bar above the results grid. The bar is hidden when browsing table data normally.
 
 #### Templates panel
 

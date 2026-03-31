@@ -4,9 +4,14 @@ All notable changes to pgview are documented here.
 
 ---
 
-## [Unreleased]
+## [v0.5.1] — 2026-03-31
 
 ### Added
+
+**SQL result bar**
+- After running a query in the SQL editor, the executed SQL statement is displayed in a compact panel above the data grid (dim `▸` leader, colour-highlighted SQL text)
+- Multi-line queries show the first line with the `▸` marker; subsequent lines are indented; the bar height is capped at 5 rows
+- The bar is hidden during normal table browse (`Enter` from the table list) and only appears for SQL editor results
 
 **Clipboard copy** (closes [#14](https://github.com/sibasismukherjee/pgview/issues/14))
 - `y` in the data grid copies the focused cell value to the clipboard; NULL copies as an empty string
@@ -14,7 +19,8 @@ All notable changes to pgview are documented here.
 - Status bar shows `Copied: <preview>` (truncated at 40 chars) on success, or an error in red if no clipboard tool is available
 - macOS: uses `pbcopy`; Linux: tries `wl-copy`, `xclip`, `xsel` in order; inside tmux (`$TMUX` set): uses `tmux set-buffer` regardless of OS — no external Go dependencies added
 
-**Bug fixes**
+### Fixed
+
 - Single-element PostgreSQL arrays (e.g. `text[]` with one element) no longer display as blank in the data grid. `pgx` returns arrays as `[]any`; the previous `fmt.Sprintf("%v", ...)` produced `[elem]` which tview silently consumed as a colour tag. Values now render as `{elem}` PostgreSQL notation.
 - Export (`E`) no longer freezes the TUI when a filter is active or when the table is large. The re-query now runs in a background goroutine with `QueueUpdateDraw` for footer updates.
 
@@ -222,6 +228,7 @@ All notable changes to pgview are documented here.
 
 ---
 
+[v0.5.1]: https://github.com/sibasismukherjee/pgview/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/sibasismukherjee/pgview/compare/v0.4.1...v0.5.0
 [v0.4.1]: https://github.com/sibasismukherjee/pgview/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/sibasismukherjee/pgview/compare/v0.3.0...v0.4.0

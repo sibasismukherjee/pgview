@@ -14,7 +14,7 @@ import (
 	"github.com/sibasismukherjee/pgview/internal/tui"
 )
 
-var version = "0.5.0"
+var version = "0.5.1"
 
 func main() {
 	proxyURL := flag.String("url", "", "PostgreSQL proxy/connection URL (host:port or postgres://host:port/dbname)")
