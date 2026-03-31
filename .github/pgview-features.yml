@@ -56,3 +56,7 @@ features:
 
   - name: "Mouse & Touchpad"
     description: "Vertical scroll moves row selection everywhere. Horizontal two-finger swipe pans wide column sets without arrow keys."
+
+  - name: "Clipboard Copy"
+    description: "Press y on any cell to copy its raw value to the clipboard. Works in the data grid and row viewer. Auto-detects tmux and uses the tmux paste buffer when inside a tmux session."
+    key: "y"
