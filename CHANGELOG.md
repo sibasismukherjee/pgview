@@ -4,6 +4,15 @@ All notable changes to pgview are documented here.
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- README fully redesigned: scenario-first narrative (incident response, schema exploration, safe data fixup), concise feature table, portfolio site link for full docs; keyboard reference and detailed usage moved to the portfolio docs page
+- Demo tape updated to show SQL result bar, clipboard copy (`y`), and a narrative flow around a real investigation workflow
+
+---
+
 ## [v0.5.1] — 2026-03-31
 
 ### Added
