@@ -71,6 +71,33 @@ func (app *App) showData() {
 		case event.Rune() == 'E':
 			app.showExportPrompt()
 			return nil
+		case event.Rune() == 'y':
+			row, col := app.dataWidget.GetSelection()
+			if row < 1 {
+				return nil
+			}
+			app.clipCopy(nullToEmpty(app.dataGridCellValue(row, col)))
+			return nil
+		case event.Rune() == 'Y':
+			row, _ := app.dataWidget.GetSelection()
+			if row < 1 {
+				return nil
+			}
+			_, vals := app.dataGridRowValues(row)
+			parts := make([]string, len(vals))
+			for i, v := range vals {
+				parts[i] = nullToEmpty(v)
+			}
+			app.clipCopy(strings.Join(parts, "\t"))
+			return nil
+		case event.Key() == tcell.KeyCtrlC:
+			row, _ := app.dataWidget.GetSelection()
+			if row < 1 {
+				return nil
+			}
+			cols, vals := app.dataGridRowValues(row)
+			app.clipCopy(rowToJSON(cols, vals))
+			return nil
 		}
 		return app.globalKeys(event)
 	})
