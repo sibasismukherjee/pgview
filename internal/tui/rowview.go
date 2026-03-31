@@ -175,6 +175,14 @@ func (app *App) showRowView() {
 	// ── Input capture ─────────────────────────────────────────────────────
 	t.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
+		case event.Rune() == 'y':
+			selRow, _ := t.GetSelection()
+			idx := selRow - 1
+			if idx >= 0 && idx < len(fields) {
+				app.clipCopy(nullToEmpty(fields[idx].newVal))
+			}
+			return nil
+
 		case event.Rune() == 'e' || event.Key() == tcell.KeyEnter:
 			selRow, _ := t.GetSelection()
 			idx := selRow - 1

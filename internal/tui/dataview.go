@@ -11,21 +11,31 @@ import (
 	"github.com/sibasismukherjee/pgview/internal/audit"
 )
 
-// showData loads and displays paginated rows for app.curTable.
-func (app *App) showData() {
-	if app.dataWidget == nil {
-		app.dataWidget = tview.NewTable().
-			SetBorders(false).
-			SetSelectable(true, false).
-			SetFixed(1, 0)
-		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
-		app.pages.AddPage(pageData, app.dataWidget, true, false)
+// ensureDataPage creates dataWidget, sqlBarView, and dataPageFlex on first call
+// and registers the flex container as pageData. Idempotent.
+func (app *App) ensureDataPage() {
+	if app.dataWidget != nil {
+		return
 	}
+	app.dataWidget = tview.NewTable().
+		SetBorders(false).
+		SetSelectable(true, false).
+		SetFixed(1, 0)
+	app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
+	app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
 
-	app.loadData()
-	app.switchPage(pageData)
-	app.setTooltip(hotkeysData)
+	app.sqlBarView = tview.NewTextView().
+		SetDynamicColors(true).
+		SetWordWrap(true).
+		SetWrap(true)
+	app.sqlBarView.SetBackgroundColor(tcell.ColorDefault)
+
+	app.dataPageFlex = tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(app.sqlBarView, 0, 0, false). // hidden until a SQL result is shown
+		AddItem(app.dataWidget, 0, 1, true)
+
+	app.pages.AddPage(pageData, app.dataPageFlex, true, false)
 
 	app.dataWidget.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch {
@@ -71,14 +81,41 @@ func (app *App) showData() {
 		case event.Rune() == 'E':
 			app.showExportPrompt()
 			return nil
+		case event.Rune() == 'y':
+			row, col := app.dataWidget.GetSelection()
+			if row < 1 {
+				return nil
+			}
+			app.clipCopy(nullToEmpty(app.dataGridCellValue(row, col)))
+			return nil
 		}
 		return app.globalKeys(event)
 	})
 }
 
+// showData loads and displays paginated rows for app.curTable.
+func (app *App) showData() {
+	app.ensureDataPage()
+
+	// Hide the SQL bar — this is a table browse, not a SQL result.
+	app.dataPageFlex.ResizeItem(app.sqlBarView, 0, 0)
+	app.sqlBarView.SetText("")
+
+	app.loadData()
+	app.switchPage(pageData)
+	app.tv.SetFocus(app.dataWidget)
+	app.setTooltip(hotkeysData)
+}
+
 func (app *App) loadData() {
 	t := app.dataWidget
 	t.Clear()
+
+	// Hide the SQL bar — table browse never shows it.
+	if app.dataPageFlex != nil {
+		app.dataPageFlex.ResizeItem(app.sqlBarView, 0, 0)
+		app.sqlBarView.SetText("")
+	}
 
 	parts := strings.SplitN(app.curTable, ".", 2)
 	if len(parts) != 2 {

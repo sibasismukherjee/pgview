@@ -246,6 +246,15 @@ func formatValue(v interface{}) string {
 	case []byte:
 		// bytea — render as \x<hex> (PostgreSQL hex escape format)
 		return fmt.Sprintf(`\x%x`, val)
+	case []any:
+		// PostgreSQL array — pgx returns []any for array OIDs in simple protocol.
+		// fmt.Sprintf("%v", []any{"tag"}) = "[tag]" which tview interprets as a
+		// colour tag and renders blank. Format as {elem1,elem2} instead.
+		parts := make([]string, len(val))
+		for i, elem := range val {
+			parts[i] = formatValue(elem)
+		}
+		return "{" + strings.Join(parts, ",") + "}"
 	default:
 		return fmt.Sprintf("%v", val)
 	}
