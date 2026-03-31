@@ -9,8 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create GitHub release with changelog
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog section
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Extract the block between ## [vX.Y.Z] and the next ## heading
+          NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md)
+          # Write to a file to avoid multiline env var quoting issues
+          echo "$NOTES" > release_notes.md
+
+      - name: Create release
+        id: create
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          generate_release_notes: false
+
   release:
     name: Build and publish release binaries
+    needs: create-release
     runs-on: ubuntu-latest
 
     strategy:
