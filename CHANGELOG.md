@@ -10,8 +10,6 @@ All notable changes to pgview are documented here.
 
 **Clipboard copy** (closes [#14](https://github.com/sibasismukherjee/pgview/issues/14))
 - `y` in the data grid copies the focused cell value to the clipboard; NULL copies as an empty string
-- `Y` copies the entire row as tab-separated values (TSV); NULL cells copy as empty strings
-- `Ctrl+C` copies the entire row as a JSON object `{"col": "val", …}`; NULL values copy as JSON `null`
 - `y` in the row viewer copies the selected field value to the clipboard
 - Status bar shows `Copied: <preview>` (truncated at 40 chars) on success, or an error in red if no clipboard tool is available
 - macOS: uses `pbcopy`; Linux: tries `wl-copy`, `xclip`, `xsel` in order; inside tmux (`$TMUX` set): uses `tmux set-buffer` regardless of OS — no external Go dependencies added

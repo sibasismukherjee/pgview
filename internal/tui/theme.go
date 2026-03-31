@@ -68,7 +68,7 @@ const (
 		"  [#569cd6]<Esc>[-] back  [#569cd6]<g>[-] top  [#569cd6]<G>[-] bottom" +
 		"  [#6a6a6a]│[-]  [#569cd6]<n>/<p>[-] page  [#6a6a6a]│[-]  [#569cd6]</>[-] filter\n" +
 		"  [#569cd6]<d>[-] schema  [#569cd6]<f>[-] row view/edit  [#569cd6]<E>[-] export" +
-		"  [#6a6a6a]│[-]  [#569cd6]<y>[-] copy cell  [#569cd6]<Y>[-] row TSV  [#569cd6]<Ctrl+C>[-] row JSON"
+		"  [#6a6a6a]│[-]  [#569cd6]<y>[-] copy cell  [#569cd6]<r>[-] refresh  [#569cd6]<e>[-] SQL  [#569cd6]<Ctrl+A>[-] audit"
 
 	// Fuzzy search overlay
 	hotkeysFuzzy = "\n" +

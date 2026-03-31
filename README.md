@@ -27,7 +27,7 @@
 - **Fuzzy table search** — press `/` to open a full-screen fuzzy finder across all schemas and tables; matched characters are highlighted; arrow keys navigate, `Enter` opens the table
 - **Export to CSV / JSON** — press `E` (Shift+E) in the data view to export the full result set (without page limit) to a file; format and path prompted interactively
 - **Audit logging** — `Ctrl+A` records every DML with a companion restore SQL file; configurable via `-audit-dir` flag, `PGVIEW_AUDIT_DIR` env, or `~/.pgview/config.yml`
-- **Clipboard copy** — `y` yanks the focused cell, `Y` copies the row as TSV, `Ctrl+C` copies the row as JSON; works in the data grid and row viewer; auto-detects tmux and uses the tmux paste buffer when inside a tmux session
+- **Clipboard copy** — `y` yanks the focused cell value to the clipboard; also works in the row viewer; auto-detects tmux and uses the tmux paste buffer when inside a tmux session
 - **Secure password prompt** — no echo, uses terminal raw mode
 
 ---
@@ -239,8 +239,6 @@ pgview -url localhost -username postgres -dbname mydb -sslmode disable
 | `d` | Open schema browser for this table |
 | `E` | Export full result set to CSV or JSON (prompts for format and path) |
 | `y` | Copy focused cell value to clipboard (NULL → empty string) |
-| `Y` | Copy entire row as tab-separated values to clipboard |
-| `Ctrl+C` | Copy entire row as JSON `{"col": "val", …}` to clipboard |
 | `r` | Re-run the current query |
 | `e` | Open SQL editor (pre-filled with last query) |
 | `Ctrl+A` | Toggle audit logging |
