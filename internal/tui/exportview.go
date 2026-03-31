@@ -82,6 +82,7 @@ func (app *App) defaultExportPath(format string) string {
 
 // doExport re-queries without LIMIT, writes the result to path in the chosen format,
 // and shows a confirmation or error in the footer.
+// The query runs in a background goroutine so the TUI stays responsive.
 func (app *App) doExport(format, rawPath string) {
 	// Expand leading ~
 	if strings.HasPrefix(rawPath, "~/") {
@@ -90,57 +91,69 @@ func (app *App) doExport(format, rawPath string) {
 	}
 
 	app.setFooter("[#6a6a6a]Exporting…[-]")
-	app.tv.ForceDraw()
 
-	schema, table := splitTable(app.curTable)
-	expStart := time.Now()
-	result, err := app.client.Query(app.exportSQL)
-	expDur := time.Since(expStart)
-	rows := -1
-	if err == nil && result != nil {
-		rows = len(result.Rows)
-	}
-	app.logAudit(audit.Record{
-		Type:     audit.StmtExport,
-		Schema:   schema,
-		Table:    table,
-		SQL:      app.exportSQL,
-		Duration: expDur,
-		Rows:     rows,
-		Err:      err,
-	})
-	if err != nil {
-		app.setFooter(fmt.Sprintf("[#f44747]query error: %v[-]", err))
-		app.tv.ForceDraw()
-		return
-	}
+	// Capture everything the goroutine needs before leaving the main goroutine.
+	exportSQL := app.exportSQL
+	curTable := app.curTable
+	schema, table := splitTable(curTable)
 
-	f, err := os.Create(rawPath)
-	if err != nil {
-		app.setFooter(fmt.Sprintf("[#f44747]cannot write file: %v[-]", err))
-		app.tv.ForceDraw()
-		return
-	}
+	go func() {
+		expStart := time.Now()
+		result, err := app.client.Query(exportSQL)
+		expDur := time.Since(expStart)
+		rows := -1
+		if err == nil && result != nil {
+			rows = len(result.Rows)
+		}
+		app.logAudit(audit.Record{
+			Type:     audit.StmtExport,
+			Schema:   schema,
+			Table:    table,
+			SQL:      exportSQL,
+			Duration: expDur,
+			Rows:     rows,
+			Err:      err,
+		})
 
-	switch format {
-	case "csv":
-		err = export.WriteCSV(f, result.Columns, result.Rows)
-	case "json":
-		err = export.WriteJSON(f, result.Columns, result.Rows)
-	}
+		if err != nil {
+			app.tv.QueueUpdateDraw(func() {
+				app.setFooter(fmt.Sprintf("[#f44747]query error: %v[-]", err))
+			})
+			return
+		}
 
-	if closeErr := f.Close(); closeErr != nil && err == nil {
-		err = closeErr
-	}
+		f, err := os.Create(rawPath)
+		if err != nil {
+			app.tv.QueueUpdateDraw(func() {
+				app.setFooter(fmt.Sprintf("[#f44747]cannot write file: %v[-]", err))
+			})
+			return
+		}
 
-	if err != nil {
-		app.setFooter(fmt.Sprintf("[#f44747]write error: %v[-]", err))
-		app.tv.ForceDraw()
-		return
-	}
+		switch format {
+		case "csv":
+			err = export.WriteCSV(f, result.Columns, result.Rows)
+		case "json":
+			err = export.WriteJSON(f, result.Columns, result.Rows)
+		}
 
-	app.setFooter(fmt.Sprintf(
-		"[#4ec9b0]Exported %d rows to %s[-]",
-		len(result.Rows), rawPath,
-	))
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+
+		if err != nil {
+			app.tv.QueueUpdateDraw(func() {
+				app.setFooter(fmt.Sprintf("[#f44747]write error: %v[-]", err))
+			})
+			return
+		}
+
+		exported := len(result.Rows)
+		app.tv.QueueUpdateDraw(func() {
+			app.setFooter(fmt.Sprintf(
+				"[#4ec9b0]Exported %d rows to %s[-]",
+				exported, rawPath,
+			))
+		})
+	}()
 }
