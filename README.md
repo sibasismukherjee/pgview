@@ -76,7 +76,17 @@ With audit mode on, the full before/after is logged. With DML confirmation enabl
 
 ### 📊 Exploring data without writing SQL
 
-Type `amount>100` in the filter bar. pgview translates it to a proper WHERE clause, shows the result count, and keeps the clause visible in the footer. Array columns match element-wise; JSONB columns support `@>` queries. Press `E` to export the filtered result to CSV or JSON — all rows, no page limit.
+Type `amount>100` in the filter bar. pgview translates it to a proper WHERE clause, shows the result count, and keeps the clause visible in the footer. Array columns match element-wise; JSONB columns support `@>` queries.
+
+---
+
+### 📤 Pulling data for a post-mortem or handoff
+
+The on-call is over. Now you need to send the affected rows to the product team.
+
+Filter down to exactly the rows you care about — `status=failed created_at>2026-03-30` — then press `E`. pgview asks for format (`csv` or `json`) and a file path (pre-filled as `~/export_orders_<timestamp>.csv`). Hit Enter twice and the file is written.
+
+The export re-runs the query **without `LIMIT` or `OFFSET`**, so you always get every matching row, not just the current page. NULL values become empty string in CSV and `null` in JSON. Hand the file off, attach it to the incident ticket, feed it into a notebook — it's just a file.
 
 ---
 
