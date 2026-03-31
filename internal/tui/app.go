@@ -51,6 +51,8 @@ type App struct {
 	// View widgets (created once, reused)
 	tableListWidget *tview.Table
 	dataWidget      *tview.Table
+	sqlBarView      *tview.TextView // shows the SQL that produced the current result
+	dataPageFlex    *tview.Flex     // wraps sqlBarView + dataWidget; registered as pageData
 
 	// Schema browser (4-tab panel, opened with 'd')
 	schemaFlex   *tview.Flex

@@ -659,21 +659,43 @@ func buildPreCaptureSelect(kind, query string) (string, bool) {
 	return fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1001", table, whereClause), true
 }
 
+// sqlBarText formats a SQL string for display in the SQL bar panel above the
+// results table. The query is shown with a dim ▸ leader; each line is indented
+// after the first.
+func sqlBarText(sql string) string {
+	lines := strings.Split(strings.TrimSpace(sql), "\n")
+	var sb strings.Builder
+	sb.WriteString("\n") // top padding
+	for i, line := range lines {
+		if i == 0 {
+			sb.WriteString(fmt.Sprintf(" [#6a6a6a]▸[-]  [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line))))
+		} else {
+			sb.WriteString(fmt.Sprintf("\n    [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line))))
+		}
+	}
+	return sb.String()
+}
+
+// sqlBarHeight returns the number of terminal rows to allocate for the SQL bar.
+func sqlBarHeight(sql string) int {
+	n := strings.Count(strings.TrimSpace(sql), "\n") + 1 // content lines
+	h := n + 1                                            // +1 for top padding
+	if h > 5 {
+		h = 5
+	}
+	return h
+}
+
 // showSQLResult renders query output in the data widget.
 func (app *App) showSQLResult(result *db.QueryResult, err error) {
-	// Ensure data widget exists.
-	if app.dataWidget == nil {
-		app.dataWidget = tview.NewTable().
-			SetBorders(false).
-			SetSelectable(true, false).
-			SetFixed(1, 0)
-		app.dataWidget.SetBackgroundColor(tcell.ColorDefault)
-		app.dataWidget.SetSelectedStyle(tcell.StyleDefault.Reverse(true))
-		app.pages.AddPage(pageData, app.dataWidget, true, false)
-	}
+	app.ensureDataPage()
 
 	t := app.dataWidget
 	t.Clear()
+
+	// Show the SQL that produced this result in the bar above the table.
+	app.sqlBarView.SetText(sqlBarText(app.lastSQL))
+	app.dataPageFlex.ResizeItem(app.sqlBarView, sqlBarHeight(app.lastSQL), 0)
 
 	if err != nil {
 		t.SetCell(0, 0, errCell(fmt.Sprintf("error: %v", err)))
