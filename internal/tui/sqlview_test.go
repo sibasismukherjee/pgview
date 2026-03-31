@@ -103,5 +103,3 @@ func TestSQLBarHeight(t *testing.T) {
 		})
 	}
 }
-
-

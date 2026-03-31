@@ -668,9 +668,9 @@ func sqlBarText(sql string) string {
 	sb.WriteString("\n") // top padding
 	for i, line := range lines {
 		if i == 0 {
-			sb.WriteString(fmt.Sprintf(" [#6a6a6a]▸[-]  [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line))))
+			fmt.Fprintf(&sb, " [#6a6a6a]▸[-]  [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line)))
 		} else {
-			sb.WriteString(fmt.Sprintf("\n    [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line))))
+			fmt.Fprintf(&sb, "\n    [#9cdcfe]%s[-]", tview.Escape(strings.TrimSpace(line)))
 		}
 	}
 	return sb.String()
@@ -679,7 +679,7 @@ func sqlBarText(sql string) string {
 // sqlBarHeight returns the number of terminal rows to allocate for the SQL bar.
 func sqlBarHeight(sql string) int {
 	n := strings.Count(strings.TrimSpace(sql), "\n") + 1 // content lines
-	h := n + 1                                            // +1 for top padding
+	h := n + 1                                           // +1 for top padding
 	if h > 5 {
 		h = 5
 	}
