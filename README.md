@@ -15,6 +15,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"/></a>
 </p>
 
+> **Full documentation, try-it guide, and keyboard reference →**
+> **[sibasismukherjee.github.io/pgview.html](https://sibasismukherjee.github.io/pgview.html)**
+
 ---
 
 <img src="assets/demo.gif" width="900" alt="pgview demo"/>
@@ -27,12 +30,11 @@ Most database GUIs are either too heavy (Electron, Java) or too bare (psql). pgv
 
 It was built for one job: **browse and modify PostgreSQL data quickly, safely, and without surprises.**
 
-> **Full documentation, screenshots, and keyboard reference →**
-> **[sibasismukherjee.github.io/pgview.html](https://sibasismukherjee.github.io/pgview.html)**
-
 ---
 
 ## Real-world scenarios
+
+Here are a few situations where pgview earns its keep.
 
 ### 🔥 Incident response at 2am
 
@@ -94,7 +96,10 @@ The export re-runs the query **without `LIMIT` or `OFFSET`**, so you always get 
 
 ```bash
 # Pre-built binary (macOS / Linux, amd64 + arm64)
-curl -sL https://github.com/sibasismukherjee/pgview/releases/latest/download/pgview_latest_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/') -o pgview
+TAG=$(curl -sfL "https://api.github.com/repos/sibasismukherjee/pgview/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -sfL "https://github.com/sibasismukherjee/pgview/releases/download/${TAG}/pgview_${TAG}_${OS}_${ARCH}" -o pgview
 chmod +x pgview && sudo mv pgview /usr/local/bin/
 
 # Build from source
@@ -103,6 +108,9 @@ make install   # installs to $(go env GOPATH)/bin
 ```
 
 **Requires:** Go 1.22+ (source build only). No runtime dependencies.
+
+> **Windows:** All commands work inside [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install).
+> Install the Linux binary and run `pgview` from the WSL2 terminal.
 
 ---
 
@@ -114,6 +122,8 @@ pgview -url myhost:5432 -username alice -dbname orders      # explicit flags
 pgview -url "postgres://alice:secret@localhost/orders"       # full DSN
 pgview -url localhost -sslmode disable -audit               # local dev + audit on
 ```
+
+Running `pgview` with no flags opens an interactive prompt sequence asking for host, username, database name, and password (input hidden). Press `Enter` to accept any shown default.
 
 ---
 
